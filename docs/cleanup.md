@@ -27,8 +27,15 @@ scripts/residue_check.sh proto-prd- us-east-1
 The access log bucket can receive late log deliveries after step 1. If `destroy` fails because a bucket is not
 empty, run step 1 again and repeat step 2.
 
-With the customer config (`retain`), `cdk destroy` removes the stack but keeps both buckets and their data. Delete
-them by hand only when the data owner agrees.
+`empty_stack_buckets.py` refuses any stack whose name does not start with `--prefix` (default `proto-prd-`, the
+sandbox prefix). For another stack name, pass the prefix explicitly, for example for the customer config:
+
+```bash
+uv run python scripts/empty_stack_buckets.py prd-agent-artifacts --prefix prd-agent- --region <REGION>
+```
+
+With the customer config (`retain`), `cdk destroy` removes the stack but keeps both buckets and their data, so the
+script is normally not needed there. Empty and delete the retained buckets by hand only when the data owner agrees.
 
 The residue check covers CloudFormation stacks, S3 buckets, resources tagged `Project=prd-agent` (and
 `Teardown=after-test`), Lambda log groups and functions, IAM roles and customer policies, ECR repositories, API

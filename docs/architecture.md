@@ -54,7 +54,7 @@ Components:
 
 - **Manual copy between form and AI tool.** The form calls no AI service. This keeps the form usable offline, keeps
   intake data out of any third-party call made by the form, and lets any AI tool be used. The cost is one manual
-  step. (Spec non-goal; DECISIONS.md D-01.)
+  step. (Project non-goal; DECISIONS.md D-01.)
 - **Two compilers, one test.** The browser needs JavaScript and the CLI and tests need Python. A parity test runs
   both on the same fixtures, edge cases included. (D-03.)
 - **The thing model is the reference.** The consistency check compares against thing-model.json rather than
@@ -103,7 +103,7 @@ All checked on 2026-10-20 against the linked official pages.
 | 8 | SSE-S3 is the base encryption for every bucket. A server access log destination bucket must use SSE-S3 (with SSE-KMS, log objects may be undeliverable or unreadable) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html |
 | 9 | cdk-nag AwsSolutions S1 flags a bucket with server access logs disabled; S2 flags public access not blocked; S10 flags a bucket that does not require SSL | https://github.com/cdklabs/cdk-nag/blob/main/RULES.md |
 
-The spec's "assertion to verify" was the Kiro reading rules and paths for `AGENTS.md` and steering files.
+The assertion that the requirements input asked to verify was the Kiro reading rules and paths for `AGENTS.md` and steering files.
 Rows 1 to 6 handle it.
 
 Statements that could not be verified were removed and are not in the repository:

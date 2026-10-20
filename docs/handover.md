@@ -31,4 +31,6 @@
   artifact bucket (the log bucket must stay on SSE-S3), Object Lock for released bundles, and CloudTrail data events.
 - Set retention for noncurrent versions and access logs according to policy, and use `retain` outside sandboxes.
 - Decide on a struct or array type for structured properties instead of encoded strings.
+- Set the copyright holder in `LICENSE` (placeholder `<COPYRIGHT_HOLDER>`) and confirm the security contact in
+  `SECURITY.md` for the final hosting location.
 - Treat AI-produced deliverables as drafts. The checker proves ID consistency, not correctness.

@@ -26,7 +26,7 @@ Command: `uv run pytest` → **71 passed, 0 failed, 0 skipped**.
 Negative check of the nag test: with the harness sanity test in place, a bare bucket produces an S1 error, so the
 "no findings" assertion for the real stack is meaningful.
 
-## Acceptance criteria (spec section 9)
+## Acceptance criteria
 
 | # | Criterion | How it was checked | Result |
 |---|---|---|---|
@@ -65,6 +65,6 @@ Negative check of the nag test: with the harness sanity test in place, a bare bu
   The labels are checked by regular expressions only.
 - **Manual testing in a real browser.** The forms were exercised in jsdom, not in an interactive browser session.
   Clipboard copy and file download/upload (export/import) were not exercised.
-- **A real AI agent run (for example Kiro) on the prompt.** Not run; the spec forbids online AI calls in this
-  project. The local reference generator stands in for the agent.
+- **A real AI agent run (for example Kiro) on the prompt.** Not run; the project constraints forbid online AI
+  calls. The local reference generator stands in for the agent.
 - **ASH scanners marked MISSING** (see above) and **Holmes**.

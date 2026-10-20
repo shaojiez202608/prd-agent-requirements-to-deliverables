@@ -3,7 +3,8 @@
 Usage: uv run python scripts/empty_stack_buckets.py <stack-name> [--region us-east-1] [--yes]
 
 Safety: only buckets that are physical resources of the named stack are touched, and the stack name
-must start with the prefix in --prefix (default "proto-prd-"). Without --yes it only lists what it would delete.
+must start with the prefix in --prefix (default "proto-prd-", the sandbox prefix; pass e.g. --prefix prd-agent- for
+the customer config). Without --yes it only lists what it would delete.
 """
 
 from __future__ import annotations

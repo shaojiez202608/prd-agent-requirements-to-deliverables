@@ -5,6 +5,8 @@ __pycache__/
 .ruff_cache/
 out/
 infra/cdk.out/
+cdk.out/
+cdk.context.json
 *.zip
 .DS_Store
 .env
