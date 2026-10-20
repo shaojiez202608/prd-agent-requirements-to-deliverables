@@ -1,0 +1,12 @@
+{
+  "stack_name": "proto-prd-artifacts",
+  "region": "us-east-1",
+  "removal_policy": "destroy",
+  "noncurrent_version_expiration_days": 30,
+  "access_log_expiration_days": 90,
+  "tags": {
+    "Project": "prd-agent",
+    "Purpose": "prototype",
+    "Teardown": "after-test"
+  }
+}
