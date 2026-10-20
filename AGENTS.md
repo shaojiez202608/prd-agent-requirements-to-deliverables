@@ -33,10 +33,38 @@ Only after step 11 start generating.
 - Before reporting 100 percent, run `prd-agent validate <folder>` and `prd-agent check-progress <folder>`.
 - Do not add real company, customer, product, person or module names. Use neutral placeholders.
 
-## Repository commands
+## Contributing to this repository
+
+The sections above are part of the product (FR-3): they tell an agent how to turn an intake prompt into
+deliverables. This section applies only when your task is to **change this repository** (code, templates, docs,
+CI), not to generate deliverables. Human contributor rules are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Role: a careful contributor to a small Python/JavaScript prototype with an optional AWS CDK stack.
+
+Common commands (all from the repository root):
 
 ```
-uv sync
-uv run pytest
+make init          # uv sync; copy infra/config/*.example.json to *.json if missing
+make lint test     # ruff and pytest (CI runs the same targets; they never modify files)
+make synth         # CDK synth with cdk-nag AwsSolutions, output outside the repository
+make scan          # gitleaks on the full history plus the canary check
 uv run prd-agent --help
 ```
+
+Git flow: branch from `main`, one change per branch, Conventional Commits (`feat(scope): ...`) with a body that
+says what changed, why and how it was verified. Never rewrite published history. Never push unless asked.
+
+Always:
+- Add or update a test with every change and run `make lint test` before you report back.
+- Keep `intake/compiler.js` and the Python compiler in sync; rebuild forms and examples when templates change.
+- Use synthetic data and the placeholders `<UPPER_SNAKE>`, `example.com` and `111122223333`.
+
+Ask first:
+- Any command that creates, changes or deletes AWS resources (`make deploy`, `make destroy`, `make verify`).
+- Adding a dependency, a GitHub Action, or a suppression for cdk-nag or gitleaks.
+- Changing CI, scanner configuration, CODEOWNERS, this file or `knowledge-base/00-project-rules/`.
+
+Never:
+- Commit account IDs, credentials, profile names, real configuration files or unmasked command output.
+- Modify account-level settings, the `CDKToolkit` stack, or resources that do not carry this project's prefix.
+- Disable a test, a scanner or a nag rule to make a check pass.
