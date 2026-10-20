@@ -105,9 +105,13 @@ def cmd_render_pdf(a) -> int:
 
 
 def cmd_diff_model(a) -> int:
-    old = json.loads(Path(a.old).read_text(encoding="utf-8"))
-    new = json.loads(Path(a.new).read_text(encoding="utf-8"))
-    found = changes.diff_models(old, new)
+    try:
+        old = json.loads(Path(a.old).read_text(encoding="utf-8"))
+        new = json.loads(Path(a.new).read_text(encoding="utf-8"))
+        found = changes.diff_models(old, new)
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
     sys.stdout.write(changes.render_changes(found))
     return 1 if any(c.breaking for c in found) and a.fail_on_breaking else 0
 

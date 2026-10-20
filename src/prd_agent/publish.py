@@ -4,7 +4,8 @@ Interface (docs/distribution.md): a bundle is the deliverable folder plus
 MANIFEST.json (file list with SHA-256). Destinations:
 
 - a local directory (default, no AWS needed; this is the mock mode), or
-- ``s3://<bucket>/<prefix>`` on the optional private bucket from infra/.
+- ``s3://<bucket>/<prefix>`` on the optional private bucket from infra/. Every object is written with
+  ``If-None-Match: *``, so an existing bundle name is refused instead of overwritten.
 
 Publishing is refused unless the consistency check and the progress check pass.
 No instant-messaging integration is included on purpose.
@@ -56,6 +57,18 @@ def _split_s3(uri: str) -> tuple[str, str]:
     return bucket, prefix.strip("/")
 
 
+def _put_new(s3_client: Any, bucket: str, key: str, data: bytes) -> None:
+    """Write an object only if the key does not exist yet (S3 conditional write), so bundles stay immutable."""
+    try:
+        s3_client.put_object(Bucket=bucket, Key=key, Body=data, IfNoneMatch="*")
+    except Exception as exc:
+        code = (getattr(exc, "response", None) or {}).get("Error", {}).get("Code")
+        if code in ("PreconditionFailed", "ConditionalRequestConflict"):
+            raise PublishRefused(f"s3://{bucket}/{key} already exists; bundles are immutable, "
+                                 "choose a new bundle name") from exc
+        raise
+
+
 def publish(folder: Path, dest: str, bundle_name: str, s3_client: Any = None,
             outputs: list[str] | None = None) -> dict[str, Any]:
     """Publish *folder*. *outputs*: the intake's deliverables, for a folder with fewer than the FR-7 files."""
@@ -70,9 +83,10 @@ def publish(folder: Path, dest: str, bundle_name: str, s3_client: Any = None,
 
             s3_client = boto3.client("s3")
         base = f"{prefix}/{bundle_name}" if prefix else bundle_name
-        for f in _files(folder):
-            s3_client.put_object(Bucket=bucket, Key=f"{base}/{f.relative_to(folder).as_posix()}", Body=f.read_bytes())
-        s3_client.put_object(Bucket=bucket, Key=f"{base}/{MANIFEST}", Body=body.encode())
+        uploads = [(f"{base}/{f.relative_to(folder).as_posix()}", f.read_bytes()) for f in _files(folder)]
+        uploads.append((f"{base}/{MANIFEST}", body.encode()))  # last: a bundle without manifest is incomplete
+        for key, data in uploads:
+            _put_new(s3_client, bucket, key, data)
     else:
         target = Path(dest) / bundle_name
         if target.exists():

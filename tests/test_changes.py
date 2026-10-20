@@ -34,3 +34,31 @@ def test_no_changes():
     v1 = build_thing_model(load_sample("smart-plug.pm.intake.json"))
     assert diff_models(v1, copy.deepcopy(v1)) == []
     assert "No changes" in render_changes([])
+
+
+def _enum_model(values):
+    return {"properties": [{"id": 1, "identifier": "mode", "access": "RW", "name": "Mode",
+                            "data_type": {"type": "enum", "values": values}, "panel": {}}]}
+
+
+def test_enum_order_is_part_of_the_contract():
+    assert diff_models(_enum_model(["a", "b"]), _enum_model(["b", "a"]))[0].breaking is True
+    assert diff_models(_enum_model(["a", "b"]), _enum_model(["a", "c", "b"]))[0].breaking is True
+    assert diff_models(_enum_model(["a", "b"]), _enum_model(["a", "b", "c"]))[0].breaking is False
+
+
+def test_duplicate_ids_are_rejected(tmp_path):
+    import json
+
+    import pytest
+
+    from prd_agent.cli import main
+
+    dup = _enum_model(["a", "b"])
+    dup["properties"].append(dict(dup["properties"][0], identifier="other"))
+    with pytest.raises(ValueError, match="duplicate property ID 1"):
+        diff_models(dup, _enum_model(["a", "b"]))
+    old, new = tmp_path / "old.json", tmp_path / "new.json"
+    old.write_text(json.dumps(dup), encoding="utf-8")
+    new.write_text(json.dumps(_enum_model(["a", "b"])), encoding="utf-8")
+    assert main(["diff-model", str(old), str(new)]) == 3

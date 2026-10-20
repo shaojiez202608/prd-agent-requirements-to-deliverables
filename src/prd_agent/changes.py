@@ -23,7 +23,12 @@ class Change:
 
 
 def _by_id(model: dict[str, Any]) -> dict[int, dict[str, Any]]:
-    return {p["id"]: p for p in model.get("properties", [])}
+    out: dict[int, dict[str, Any]] = {}
+    for p in model.get("properties", []):
+        if p["id"] in out:
+            raise ValueError(f"duplicate property ID {p['id']} in thing model; fix it before comparing versions")
+        out[p["id"]] = p
+    return out
 
 
 def diff_models(old: dict[str, Any], new: dict[str, Any]) -> list[Change]:
@@ -65,7 +70,9 @@ def _breaking_spec(key: str, old: Any, new: Any) -> bool:
     if key in ("max", "max_length"):
         return new < old  # narrowed
     if key == "values":
-        return not set(new) >= set(old)
+        # Compatible only when values were appended at the end: devices or apps may encode an enum by its
+        # position, so a removal, reordering or insertion changes the meaning of existing values.
+        return list(new[:len(old)]) != list(old)
     return True  # step or unit change alters meaning of existing values
 
 

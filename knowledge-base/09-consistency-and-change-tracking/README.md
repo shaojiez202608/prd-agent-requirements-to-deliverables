@@ -40,7 +40,9 @@ For an intake that requests fewer deliverables, pass `--intake <intake.json>` to
 ## Change tracking (`prd-agent diff-model old.json new.json`)
 
 Compares two thing models by ID. Breaking changes: removed ID, ID reused with a new identifier, data type change,
-narrowed range or enum, access narrowed, unit or step change. Rules for iterations:
+narrowed range, an enum change other than appending values at the end (removal, reordering or insertion
+changes positions, which matters when enums are sent by index), access narrowed, unit or step change. Duplicate IDs
+in either model are an error (exit 3). Rules for iterations:
 - Never reuse an ID for a different meaning. Retire it and add a new ID.
 - Record the diff output in the PRD change log of the new version.
 - `--fail-on-breaking` exits 1 when a breaking change is present, for use in review scripts.

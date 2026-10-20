@@ -21,7 +21,12 @@ published to a folder or to the optional S3 bucket. Notification is left to what
 Rules:
 - `publish` refuses to publish unless `validate` and `check-progress` both pass.
 - Bundle names are immutable. Publish a new version under a new name (for example `-v2`) and attach the
-  `diff-model` output.
+  `diff-model` output. Enforcement: a local destination refuses an existing folder; on S3 every object is
+  written with a conditional write (`If-None-Match: *`), so S3 itself rejects a key that already exists
+  (HTTP 412) and `publish` exits 1 without overwriting anything. `MANIFEST.json` is written last, so an
+  interrupted upload leaves a bundle that `fetch` rejects.
+- The gate runs on the publisher's machine. A principal with plain `s3:PutObject` can still overwrite objects
+  without the condition; versioning keeps the previous version (see SECURITY-NOTES.md).
 - `fetch` verifies every file against the manifest and rejects absolute paths and `..` in the manifest.
 
 ## Local command-line example
