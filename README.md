@@ -73,14 +73,17 @@ that folder.
 |---|---|
 | `check-intake <intake.json>` | List pending items (exit 2 if any) |
 | `compile-prompt <intake.json> [--out f]` | Deterministic prompt text |
-| `generate <intake.json> --out <dir>` | Local reference generator; refuses on pending items |
-| `validate <dir> [--format json]` | Consistency check keyed on ID |
-| `check-progress <dir>` | Progress protocol check |
+| `generate <intake.json> --out <dir>` | Local reference generator; refuses on pending items (exit 2), exit 1 if its own validation fails, exit 3 on I/O or PDF errors (the target folder is then unchanged) |
+| `validate <dir> [--format json] [--intake f]` | Consistency check keyed on ID. Without `--intake` the FR-7 files are required |
+| `check-progress <dir> [--intake f]` | Progress protocol check |
 | `render-pdf <quick-start.md>` | Markdown to PDF |
 | `diff-model <old.json> <new.json> [--fail-on-breaking]` | Thing model change log |
-| `build-forms` | Rebuild the two HTML forms from the schema |
-| `publish <dir> --dest <dir or s3://bucket/prefix> --name <bundle>` | Publish a bundle that passes validation |
+| `build-forms` | Rebuild the two HTML forms from the schema and the system prompt |
+| `publish <dir> --dest <dir or s3://bucket/prefix> --name <bundle> [--intake f]` | Publish a bundle that passes validation; an existing bundle name is refused |
 | `fetch <src> --name <bundle> --out <dir>` | Download a bundle and verify checksums |
+
+Exit codes: 0 ok, 1 check failed, 2 insufficient input, 3 usage or I/O error. Pass `--intake` when the intake
+requested fewer deliverables than the FR-7 set (PRD, quick-start guide, device skeleton).
 
 ## Optional AWS deployment
 
@@ -104,10 +107,15 @@ object versions, then run `cdk destroy`, then run the residue check.
 ## Limitations
 
 - No online AI call. Copying the prompt from the form into the AI tool is a deliberate manual step.
-- The checker compares ID, identifier and access only, not ranges or prose.
-- Deliverables are in English, because the built-in PDF font covers Latin-1 only.
+- The checker compares ID, identifier and access only, not ranges or prose. Visible text is checked only where it
+  uses the fixed patterns listed in `knowledge-base/09` (for example ``ID 5 `timer_task` `` and the panel badges);
+  other visible text, such as free prose, is not checked.
+- Deliverables are in English, because the built-in PDF font covers Latin-1 only. When the quick-start guide is
+  requested, non-Latin-1 text in the fields that reach the PDF is a pending item.
 - Panel output guarantees structure and ID mapping, not visual design.
 - The agent follows the reading order because AGENTS.md instructs it to. The tool does not enforce it.
+- The knowledge base contains one synthetic case (`knowledge-base/10-project-cases`). Other product classes need
+  their own cases before the outputs can be relied on.
 - No effect data exists for this approach. The repository makes no claim about time saved.
 
 More detail: [docs/architecture.md](docs/architecture.md#limitations).

@@ -1,6 +1,7 @@
 # PRD 智能体：从结构化需求录入到一致的交付物
 
-> **Prototype，不用于生产。** 本仓库是原型参考实现，只用于非生产环境。上生产前需要加固的清单见文末。
+> **Prototype，不用于生产。** 本仓库是原型参考实现，只用于非生产环境。上生产前需要加固的清单见
+> [上生产前需要加固的清单](#上生产前需要加固的清单)。
 
 发布时的建议仓库名：`prd-agent-requirements-to-deliverables`。
 
@@ -11,7 +12,7 @@
 |---|---|---|
 | 物模型 | `thing-model.json` | 云平台、设备端研发 |
 | 产品架构图 | `architecture.mmd`（mermaid） | 评审 |
-| 快速接入文档 | `quick-start.md` → `quick-start.pdf` | 客户开发者（对外） |
+| 快速接入文档 | `quick-start.md` → `quick-start.pdf` | 外部开发者 |
 | 需求规格说明书 / PRD | `PRD.md` | 产品、研发 |
 | 面板交互说明与样式 | `panel-spec.md` + `panel-preview.html` | 面板 UI 设计 |
 | 设备端 Demo 骨架 | `device-demo/`（C99） | 设备端研发 |
@@ -54,6 +55,23 @@ uv run prd-agent check-progress out/smart-plug
 
 用支持 `AGENTS.md` 的智能体打开本仓库作为工作区。例如 Kiro 会自动读取工作区根目录下的 `AGENTS.md`，依据见 [docs/architecture.md](docs/architecture.md#fact-check) 的事实核对。粘贴提示词并指定输出目录，完成后对该目录运行 `prd-agent validate` 和 `prd-agent check-progress`。
 
+## 命令
+
+| 命令 | 用途 |
+|---|---|
+| `check-intake <intake.json>` | 列出待确认项（有待确认项时退出码 2） |
+| `compile-prompt <intake.json> [--out f]` | 生成确定性提示词文本 |
+| `generate <intake.json> --out <dir>` | 本地参考生成器；有待确认项时拒绝生成（退出码 2），自身校验失败时退出码 1，I/O 或 PDF 错误时退出码 3（此时目标目录保持不变） |
+| `validate <dir> [--format json] [--intake f]` | 以 ID 为主键的一致性校验。不带 `--intake` 时 FR-7 的文件必须存在 |
+| `check-progress <dir> [--intake f]` | 进度协议校验 |
+| `render-pdf <quick-start.md>` | Markdown 转 PDF |
+| `diff-model <old.json> <new.json> [--fail-on-breaking]` | 物模型变更记录 |
+| `build-forms` | 根据 schema 和系统提示词重新生成两个 HTML 录入页 |
+| `publish <dir> --dest <目录或 s3://bucket/prefix> --name <bundle> [--intake f]` | 发布通过校验的交付物包；包名已存在时拒绝发布 |
+| `fetch <src> --name <bundle> --out <dir>` | 下载交付物包并校验校验和 |
+
+退出码：0 正常，1 校验失败，2 输入不足，3 用法或 I/O 错误。录入中请求的交付物少于 FR-7 的集合（PRD、快速接入文档、设备端骨架）时，加 `--intake` 参数。
+
 ## 可选的 AWS 部署
 
 核心流程不需要 AWS。可选部署一个 CDK 栈，内容是一个私有、开启版本控制的 S3 桶（附带访问日志桶），用来存放发布的交付物包。栈里没有计算资源，也没有公网入口。
@@ -72,20 +90,31 @@ npx -y aws-cdk@2 deploy -c config=config/sandbox.json
 ## 局限
 
 - 不在线调用 AI。从录入台到 AI 工具之间是人工复制，这是刻意的取舍。
-- 校验只比对 ID、标识符和读写属性，不比对取值范围和正文内容。
-- 交付物使用英文，因为内置 PDF 字体只覆盖 Latin-1。
+- 校验只比对 ID、标识符和读写属性，不比对取值范围和正文内容。可见文本只在使用 `knowledge-base/09` 中列出的固定格式时才校验（例如 ``ID 5 `timer_task` `` 和面板上的徽标），其他可见文本（如自由行文）不校验。
+- 交付物使用英文，因为内置 PDF 字体只覆盖 Latin-1。请求快速接入文档时，进入 PDF 的字段如含 Latin-1 以外的字符，会列为待确认项。
 - 面板只保证结构和 ID 映射正确，不保证视觉效果。
 - 读取顺序靠 AGENTS.md 中的指令约束，工具本身不强制执行。
+- 知识库只有一个合成案例（`knowledge-base/10-project-cases`）。用于其他产品类别前，需要先补充对应案例。
 - 本项目没有效果数据，仓库中不声明任何效率或质量提升。
+
+更多细节见 [docs/architecture.md](docs/architecture.md#limitations)。
 
 ## 上生产前需要加固的清单
 
 详见 [docs/handover.md](docs/handover.md)。要点如下：
 - 和实际团队一起评审知识库规则。
 - 引入 Unicode 字体并审查其许可。
-- 把 validate 和 check-progress 设为 CI 的合并门禁。
+- 把 `validate` 和 `check-progress` 设为 CI 的合并门禁。
 - 把桶的访问权限收紧到具名角色，开启数据保留，评估对制品桶改用 SSE-KMS。
 - 对外文档发布前增加人工审核环节。
+
+## 文档索引
+
+[架构](docs/architecture.md) · [已有资产检索](docs/prior-art.md) · [部署](docs/deployment-guide.md) ·
+[演示脚本](docs/demo-script.md) · [交接](docs/handover.md) · [清理](docs/cleanup.md) ·
+[分发接口](docs/distribution.md) · [威胁模型](THREAT_MODEL.md) · [安全说明](SECURITY-NOTES.md) ·
+[验证记录](VERIFICATION.md) · [部署记录](DEPLOYMENT-LOG.md) · [设计决策](DECISIONS.md) ·
+[待确认问题](OPEN-QUESTIONS.md)
 
 ## 许可
 

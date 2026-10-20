@@ -91,19 +91,20 @@ Components:
 
 ## Fact check
 
-All checked on 2026-10-20 against the linked official pages.
+Each row gives the date it was last checked against the linked official page.
 
-| # | Statement used in this repository | Source |
-|---|---|---|
-| 1 | Kiro supports steering directives through AGENTS.md. An AGENTS.md in the workspace root, or in the global steering location `~/.kiro/steering/`, is picked up automatically | https://kiro.dev/docs/steering/ |
-| 2 | AGENTS.md files do not support inclusion modes and are always included | https://kiro.dev/docs/steering/ |
-| 3 | Kiro also discovers AGENTS.md files in workspace subdirectories and loads them as steering context, so this repository keeps a single AGENTS.md at the root | https://kiro.dev/docs/steering/ |
-| 4 | Workspace steering files are in `.kiro/steering/` and global ones in `~/.kiro/steering/`. On conflict, workspace steering takes priority | https://kiro.dev/docs/steering/ |
-| 5 | Steering inclusion modes are `always`, `fileMatch`, `manual` and `auto`, set in YAML front matter | https://kiro.dev/docs/steering/ |
-| 6 | The Kiro steering documentation states no load order among multiple steering or AGENTS.md files. This repository therefore claims no order enforced by the tool; the order is an instruction in AGENTS.md | https://kiro.dev/docs/steering/ (no such statement found) |
-| 7 | S3 recommends allowing only HTTPS through the `aws:SecureTransport` condition in bucket policies, using Block Public Access, enabling server access logging and versioning, and disabling ACLs (bucket owner enforced) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html |
-| 8 | SSE-S3 is the base encryption for every bucket. A server access log destination bucket must use SSE-S3 (with SSE-KMS, log objects may be undeliverable or unreadable) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html |
-| 9 | cdk-nag AwsSolutions S1 flags a bucket with server access logs disabled; S2 flags public access not blocked; S10 flags a bucket that does not require SSL | https://github.com/cdklabs/cdk-nag/blob/main/RULES.md |
+| # | Statement used in this repository | Source | Checked |
+|---|---|---|---|
+| 1 | Kiro supports steering directives through AGENTS.md. An AGENTS.md in the workspace root, or in the global steering location `~/.kiro/steering/`, is picked up automatically | https://kiro.dev/docs/steering/ | 2026-10-20 |
+| 2 | AGENTS.md files do not support inclusion modes and are always included | https://kiro.dev/docs/steering/ | 2026-10-20 |
+| 3 | Kiro also discovers AGENTS.md files in workspace subdirectories and loads them as steering context, so this repository keeps a single AGENTS.md at the root | https://kiro.dev/docs/steering/ | 2026-10-20 |
+| 4 | Workspace steering files are in `.kiro/steering/` and global ones in `~/.kiro/steering/`. On conflict, workspace steering takes priority | https://kiro.dev/docs/steering/ | 2026-10-20 |
+| 5 | Steering inclusion modes are `always`, `fileMatch`, `manual` and `auto`, set in YAML front matter | https://kiro.dev/docs/steering/ | 2026-10-20 |
+| 6 | The Kiro steering documentation states no load order among multiple steering or AGENTS.md files. This repository therefore claims no order enforced by the tool; the order is an instruction in AGENTS.md | https://kiro.dev/docs/steering/ (no such statement found) | 2026-10-20 |
+| 7 | S3 recommends allowing only HTTPS through the `aws:SecureTransport` condition in bucket policies, using Block Public Access, enabling server access logging and versioning, and disabling ACLs (bucket owner enforced) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html | 2026-10-20 |
+| 8 | SSE-S3 is the base encryption for every bucket. A server access log destination bucket must use SSE-S3 (with SSE-KMS default encryption, S3 might deliver log objects encrypted with a key you cannot access) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html | 2026-10-20 |
+| 9 | cdk-nag AwsSolutions S1 flags a bucket with server access logs disabled; S2 flags public access not blocked; S10 flags a bucket that does not require SSL | https://github.com/cdklabs/cdk-nag/blob/main/RULES.md | 2026-10-20 |
+| 10 | A `PutObject` with `If-None-Match: *` fails with 412 Precondition Failed if an object (the current version, in a versioned bucket) with the key exists; it needs only `s3:PutObject` | https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html | 2026-10-20 |
 
 The assertion that the requirements input asked to verify was the Kiro reading rules and paths for `AGENTS.md` and steering files.
 Rows 1 to 6 handle it.
