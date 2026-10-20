@@ -42,6 +42,7 @@ Components:
 | Intake forms | `intake/frontline.html`, `intake/pm.html` | Static single-file pages built by `prd-agent build-forms`. No network (CSP `default-src 'none'`) and no AI callback |
 | Prompt compiler | `intake/compiler.js`, `src/prd_agent/prompt.py`, `src/prd_agent/intake.py` | Same logic in two languages, compared byte for byte by a test |
 | Knowledge base | `AGENTS.md`, `knowledge-base/` | Numbered rules, templates and a case; the number is the reading order |
+| System prompt | `knowledge-base/00-project-rules/system-prompt.md` | Versioned agent instructions (FR-9). `prompt.py` reads it at run time; `build-forms` embeds it in the forms for `compiler.js` |
 | Reference generator | `src/prd_agent/generate.py` | Deterministic local mock of the agent. Fills the knowledge-base templates; refuses on pending items |
 | Consistency checker | `src/prd_agent/consistency.py` | Compares ID, identifier and access across deliverables with thing-model.json |
 | Progress checker | `src/prd_agent/progress.py` | Verifies PROGRESS.md against the files on disk |

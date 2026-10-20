@@ -6,7 +6,8 @@ Thanks for your interest. This is a prototype; small, focused changes are easies
 2. Keep the knowledge-base numbering: rules in the lowest fitting folder, cases only in `10-project-cases`.
 3. If you change `src/prd_agent/intake.py` or `src/prd_agent/prompt.py`, make the same change in
    `intake/compiler.js`; `tests/test_js_parity.py` must pass.
-4. If you change templates or the schema, regenerate the committed outputs:
+4. If you change templates, the schema or `knowledge-base/00-project-rules/system-prompt.md`, regenerate the
+   committed outputs:
    ```
    uv run prd-agent build-forms
    uv run prd-agent generate sample-data/smart-plug.pm.intake.json --out examples/smart-plug

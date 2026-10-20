@@ -84,3 +84,30 @@ def test_numbers_are_plain_decimals():
     assert format_number(parse_number(-0.0)) == "0"
     assert format_number(parse_number(2**53 - 1)) == "9007199254740991"
     assert parse_number(2**53 + 1) is None and parse_number("9007199254740993") is None
+
+
+def test_instructions_come_from_versioned_markdown(tmp_path, pm_intake):
+    from conftest import ROOT
+    from prd_agent.prompt import SYSTEM_PROMPT_PATH, load_instructions
+
+    src = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+    edited = tmp_path / "system-prompt.md"
+    edited.write_text(src.replace("Do not invent values", "Never invent values"), encoding="utf-8")
+    text = compile_prompt(pm_intake, instructions=load_instructions(edited))
+    assert "6. Never invent values that are not in the intake." in text
+    for line in load_instructions()["always"] + load_instructions()["generate"]:
+        assert line in compile_prompt(pm_intake)
+    # The instruction text is not duplicated in either compiler.
+    for code in (ROOT / "src" / "prd_agent" / "prompt.py", ROOT / "intake" / "compiler.js"):
+        assert "Read AGENTS.md in the workspace root" not in code.read_text(encoding="utf-8")
+
+
+def test_malformed_system_prompt_is_rejected(tmp_path):
+    import pytest
+
+    from prd_agent.prompt import load_instructions
+
+    bad = tmp_path / "system-prompt.md"
+    bad.write_text("# x\n\n## Always\n\n1. one\n\n## GENERATE mode\n\n3. two\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="CLARIFY_ONLY mode"):
+        load_instructions(bad)

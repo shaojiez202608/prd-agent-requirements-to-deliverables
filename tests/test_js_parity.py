@@ -8,15 +8,15 @@ import subprocess
 import pytest
 
 from conftest import ROOT, load_sample
-from prd_agent.prompt import compile_prompt
+from prd_agent.prompt import compile_prompt, load_instructions
 
 NODE = shutil.which("node")
 RUNNER = """
 const c = require(process.argv[1]);
 const fs = require('fs');
 const schema = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const cases = JSON.parse(fs.readFileSync(0, 'utf8'));
-process.stdout.write(JSON.stringify(cases.map(x => c.compilePrompt(x, schema))));
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+process.stdout.write(JSON.stringify(input.cases.map(x => c.compilePrompt(x, schema, input.instructions))));
 """
 
 
@@ -69,7 +69,7 @@ def _cases():
 def test_js_and_python_compilers_agree(tmp_path):
     cases = _cases()
     proc = subprocess.run([NODE, "-e", RUNNER, str(ROOT / "intake" / "compiler.js"), str(ROOT / "intake" / "schema.json")],
-                          input=json.dumps(cases), capture_output=True, text=True, check=True)
+                          input=json.dumps({"cases": cases, "instructions": load_instructions()}), capture_output=True, text=True, check=True)
     js = json.loads(proc.stdout)
     for i, (case, js_text) in enumerate(zip(cases, js, strict=True)):
         assert compile_prompt(case) == js_text, f"case {i} differs"

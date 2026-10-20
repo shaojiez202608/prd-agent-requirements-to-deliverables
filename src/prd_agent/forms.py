@@ -1,7 +1,8 @@
 """Build the two offline intake pages (FR-1) from intake/schema.json.
 
 Output: intake/frontline.html and intake/pm.html. Each page is a single file
-with the schema, the compiler and the UI script inlined, so it opens from disk
+with the schema, the agent instructions (knowledge-base/00-project-rules/system-prompt.md),
+the compiler and the UI script inlined, so it opens from disk
 with no network access. A Content-Security-Policy blocks all network requests.
 """
 
@@ -11,6 +12,7 @@ import json
 from pathlib import Path
 
 from .intake import REPO_ROOT, load_schema
+from .prompt import load_instructions
 
 INTAKE_DIR = REPO_ROOT / "intake"
 
@@ -20,7 +22,9 @@ def build_form(variant: str) -> str:
     meta = schema["variants"][variant]
     tpl = (INTAKE_DIR / "form.template.html").read_text(encoding="utf-8")
     schema_json = json.dumps(schema, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    instructions_json = json.dumps(load_instructions(), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     values = {
+        "{{INSTRUCTIONS_JSON}}": instructions_json,
         "{{TITLE}}": f"{meta['title_zh']} / {meta['title_en']}",
         "{{VARIANT}}": variant,
         "{{SCHEMA_JSON}}": schema_json,

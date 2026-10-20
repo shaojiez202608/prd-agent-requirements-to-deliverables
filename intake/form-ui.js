@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   var schema = JSON.parse(document.getElementById("schema").textContent);
+  var instructions = JSON.parse(document.getElementById("instructions").textContent);
   var form = document.getElementById("intake");
   var NUMERIC = { integer: true, number: true };
 
@@ -158,7 +159,7 @@
   var out = document.getElementById("out"), status = document.getElementById("status");
   document.getElementById("gen").onclick = function () {
     var data = collect();
-    out.value = PrdIntakeCompiler.compilePrompt(data, schema);
+    out.value = PrdIntakeCompiler.compilePrompt(data, schema, instructions);
     var n = PrdIntakeCompiler.findPending(data, schema).length;
     status.textContent = n ? ("待确认项 " + n + " 条：提示词为 CLARIFY_ONLY 模式，AI 只会列出问题，不会生成交付物。 / " + n +
       " pending item(s): prompt is CLARIFY_ONLY.") : "无待确认项：提示词为 GENERATE 模式。 / No pending items: GENERATE mode.";
