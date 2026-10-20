@@ -14,3 +14,6 @@ Technical and business facts that were not available. Nothing below was guessed 
 5. **Enum encoding on the wire.** The quick-start examples send enum values as strings. If the target platform
    transmits enums by index, the order of `values` becomes part of the contract. `diff-model` already treats a
    reordering as breaking (D-29).
+6. **Code owner.** `.github/CODEOWNERS` uses `@<MAINTAINER_GITHUB_HANDLE>`. Who owns CI, scanner configuration, AI
+   configuration and the project rules once the repository is hosted?
+

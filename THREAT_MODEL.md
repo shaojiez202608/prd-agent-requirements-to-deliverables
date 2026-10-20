@@ -1,5 +1,7 @@
 # Threat model
 
+Status: DRAFT. Not yet reviewed by the teams that would operate it; update and approve before any production use.
+
 ## System and trust boundaries
 1. A person fills an offline form, or writes intake JSON. This is untrusted input.
 2. The compiler turns the intake into prompt text. Deterministic, local.

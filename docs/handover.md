@@ -17,8 +17,8 @@
 
 ## Removal policy parameter
 `removal_policy` in `infra/config/*.json`:
-- `sandbox.json`: `destroy`. The buckets are deleted with the stack after they have been emptied (see cleanup.md).
-- `customer.json`: `retain`. This is the default for a customer prototype. Buckets and data stay after
+- `sandbox.example.json` (copied to `sandbox.json` by `make init`): `destroy`. The buckets are deleted with the stack after they have been emptied (see cleanup.md).
+- `customer.example.json` (copied to `customer.json`): `retain`. This is the default for a customer prototype. Buckets and data stay after
   `cdk destroy` and must be deleted by hand with the data owner's agreement.
 
 ## Hardening before production
@@ -31,6 +31,6 @@
   artifact bucket (the log bucket must stay on SSE-S3), Object Lock for released bundles, and CloudTrail data events.
 - Set retention for noncurrent versions and access logs according to policy, and use `retain` outside sandboxes.
 - Decide on a struct or array type for structured properties instead of encoded strings.
-- Set the copyright holder in `LICENSE` (placeholder `<COPYRIGHT_HOLDER>`) and confirm the security contact in
-  `SECURITY.md` for the final hosting location.
+- Replace `@<MAINTAINER_GITHUB_HANDLE>` in `.github/CODEOWNERS` and the role ARN placeholder in
+  `.github/workflows/deploy-verify.yml`, and create the `sandbox-aws` environment with required reviewers.
 - Treat AI-produced deliverables as drafts. The checker proves ID consistency, not correctness.

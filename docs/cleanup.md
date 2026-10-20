@@ -1,43 +1,44 @@
 # Cleanup
 
+The commands are in [README.md](../README.md#cleanup): `make destroy`, then `make verify-cleanup`. This page explains
+what they do.
+
 ## Local
 
-```bash
-rm -rf out/                 # generated folders
-```
+Delete `out/` (generated folders), `/tmp/prd-agent-cdk.out` (synth output) and, if you no longer need them,
+`infra/config/*.json` (your real configuration; the templates stay).
 
-## AWS (optional stack)
+## `make destroy` (scripts/ops.py cleanup)
 
-With the sandbox config the buckets have removal policy `destroy`. They must be empty, including every object
-version, before CloudFormation can delete them. No auto-delete custom resource is deployed (it would add a Lambda
-function and an IAM role), so empty them first:
+1. Refuses stack names that do not start with `--prefix` (default `proto-prd-`, the sandbox prefix). For another
+   stack, call `uv run python scripts/ops.py cleanup --config infra/config/customer.json --prefix prd-agent- --cdk-out <dir>`.
+2. Asks you to type the stack name.
+3. Lists the stack's buckets with their number of object versions and asks again (`DELETE DATA`) before it deletes
+   all versions and delete markers. With `removal_policy: retain` nothing is emptied and the buckets stay.
+4. Runs `cdk destroy`. No auto-delete custom resource is deployed (it would add a Lambda function and an IAM role),
+   which is why the buckets are emptied first.
+5. Deletes this project's template objects (all versions) from the CDK bootstrap bucket after a third confirmation
+   (`DELETE ASSETS`). They are found by the object keys in `cdk.out/*.assets.json` of the folders passed with
+   `--cdk-out`. Objects of other projects, CDK's shared provider assets and the `CDKToolkit` stack are not touched.
+   To include the template of an earlier deployment, synth that commit into another folder and pass both folders.
 
-```bash
-# 1. dry run, then delete all object versions and delete markers in the stack's own buckets
-uv run python scripts/empty_stack_buckets.py proto-prd-artifacts --region us-east-1
-uv run python scripts/empty_stack_buckets.py proto-prd-artifacts --region us-east-1 --yes
+A failed step prints a warning and the next steps still run; the command then exits with status 1. Non-interactive
+use (CI) sets `CLEANUP_CONFIRM_STACK=<stack name>`, `CLEANUP_CONFIRM_DATA="DELETE DATA"` and
+`CLEANUP_CONFIRM_ASSETS="DELETE ASSETS"`.
 
-# 2. destroy the stack
-cd infra && npx -y aws-cdk@2 destroy -c config=config/sandbox.json --force && cd ..
+The access log bucket can receive late log deliveries after step 3. If `cdk destroy` fails because a bucket is not
+empty, run `make destroy` again.
 
-# 3. residue check: every count must be 0
-scripts/residue_check.sh proto-prd- us-east-1
-```
+## `make verify-cleanup` (scripts/ops.py verify-cleanup)
 
-The access log bucket can receive late log deliveries after step 1. If `destroy` fails because a bucket is not
-empty, run step 1 again and repeat step 2.
+Checks every region in `REGIONS` (default `AWS_REGION`, else us-east-1) and exits non-zero if any count is not 0 or
+a category could not be read:
 
-`empty_stack_buckets.py` refuses any stack whose name does not start with `--prefix` (default `proto-prd-`, the
-sandbox prefix). For another stack name, pass the prefix explicitly, for example for the customer config:
+CloudFormation stacks with the prefix (not `DELETE_COMPLETE`), S3 buckets with the prefix in that region,
+resources tagged `Project=prd-agent` and `Teardown=after-test` that still exist (the tagging index lags behind
+deletions, so each listed bucket is confirmed with `head-bucket`), Lambda log groups and functions, IAM roles and
+customer managed policies, ECR repositories, KMS aliases, API Gateway REST and HTTP APIs, and this project's objects
+in the CDK bootstrap bucket. This stack creates only the two buckets and their policies; the other categories
+confirm that nothing else was left behind.
 
-```bash
-uv run python scripts/empty_stack_buckets.py prd-agent-artifacts --prefix prd-agent- --region <REGION>
-```
-
-With the customer config (`retain`), `cdk destroy` removes the stack but keeps both buckets and their data, so the
-script is normally not needed there. Empty and delete the retained buckets by hand only when the data owner agrees.
-
-The residue check covers CloudFormation stacks, S3 buckets, resources tagged `Project=prd-agent` (and
-`Teardown=after-test`), Lambda log groups and functions, IAM roles and customer policies, ECR repositories, API
-Gateway APIs, KMS aliases and AgentCore runtimes. This stack creates only the two buckets and their bucket policies.
-The other categories are checked to confirm that nothing else was left behind.
+The result is either "cleaned up, no residue" or a list of what remains.

@@ -15,12 +15,18 @@ def test_readmes_have_the_same_sections():
 
 
 def test_readmes_list_the_same_commands():
+    from prd_agent.cli import build_parser
+
+    sub = next(a for a in build_parser()._actions if a.dest == "cmd")
+    cli = set(sub.choices)
+
     def commands(name):
-        return re.findall(r"^\| `([a-z-]+)[ `]", (ROOT / name).read_text(encoding="utf-8"), flags=re.M)
+        rows = re.findall(r"^\| `([a-z-]+)[ `]", (ROOT / name).read_text(encoding="utf-8"), flags=re.M)
+        return [r for r in rows if r in cli]
 
     en = commands("README.md")
     assert en == commands("README.zh-CN.md")
-    assert len(en) == 10
+    assert set(en) == cli
 
 
 def test_no_internal_names_or_local_paths_in_tracked_files():

@@ -1,5 +1,9 @@
 # Architecture
 
+Applies to v0.1.0. The infrastructure parts were reviewed against commit `03ba5dc`
+(`feat(infra): config templates, validation, guarded ops and resource policy`); see CHANGELOG.md for later changes.
+The mermaid diagrams in this file are the source of truth; there are no rendered images.
+
 ## Overview
 
 ```mermaid
@@ -50,6 +54,41 @@ Components:
 | Change tracking | `src/prd_agent/changes.py` | Thing model diff by ID with a breaking/compatible flag |
 | Distribution | `src/prd_agent/publish.py`, `docs/distribution.md` | Bundle plus manifest to a local folder or `s3://` |
 | Optional infra | `infra/` | One CDK stack: private versioned S3 bucket plus access log bucket |
+| Operations | `Makefile`, `scripts/ops.py`, `scripts/scan.sh` | Preflight, guarded deploy, end-to-end verification, confirmed cleanup, residue check, secret scan |
+
+## Trust boundaries
+
+| # | Boundary | What crosses it | Control |
+|---|---|---|---|
+| 1 | Person → intake form / JSON | Untrusted free text | Schema validation, reserved markers and Latin-1 rules (pending items), length limits |
+| 2 | Prompt text → AI tool (manual copy) | Untrusted text inside INTAKE-BEGIN/END | Marker neutralisation, header echoes only known values, project rules R5/R7 (THREAT_MODEL.md) |
+| 3 | AI agent → repository workspace | Files written by the agent | Rule R7 (output folder only), `validate` and `check-progress`, code review |
+| 4 | Workstation → AWS account (optional) | Bundles, CDK deployment | Caller's short-lived credentials, TLS 1.2+, bucket policy (account boundary, optional writer list), preflight confirmation |
+| 5 | Bucket → consumers | Published bundles | Checksums in MANIFEST.json verified by `fetch`; immutable bundle names |
+
+## Deployment topology
+
+```mermaid
+flowchart TB
+  subgraph WS["Workstation or CI runner"]
+    MK["make deploy / verify / destroy"]
+    CLI["prd-agent publish / fetch"]
+  end
+  subgraph ACC["Non-production AWS account, one region (default us-east-1)"]
+    BOOT["CDKToolkit bootstrap stack (shared, not modified)"]
+    subgraph STK["Stack proto-prd-artifacts"]
+      AB["S3 artifact bucket: versioned, SSE-S3, BPA, TLS 1.2+, deny outside account"]
+      LB["S3 access log bucket: SSE-S3, BPA, TLS 1.2+"]
+    end
+  end
+  MK -->|"CloudFormation via CDK; template asset in the bootstrap bucket"| BOOT
+  MK --> STK
+  CLI -->|"HTTPS, conditional PutObject, GetObject"| AB
+  AB -->|"server access logs (logging.s3.amazonaws.com, SourceArn + SourceAccount)"| LB
+```
+
+There is no compute, no network endpoint of our own and no cross-account access. One stack per environment;
+the sandbox stack name starts with `proto-prd-`.
 
 ## Design choices
 
@@ -105,6 +144,8 @@ Each row gives the date it was last checked against the linked official page.
 | 8 | SSE-S3 is the base encryption for every bucket. A server access log destination bucket must use SSE-S3 (with SSE-KMS default encryption, S3 might deliver log objects encrypted with a key you cannot access) | https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html | 2026-10-20 |
 | 9 | cdk-nag AwsSolutions S1 flags a bucket with server access logs disabled; S2 flags public access not blocked; S10 flags a bucket that does not require SSL | https://github.com/cdklabs/cdk-nag/blob/main/RULES.md | 2026-10-20 |
 | 10 | A `PutObject` with `If-None-Match: *` fails with 412 Precondition Failed if an object (the current version, in a versioned bucket) with the key exists; it needs only `s3:PutObject` | https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html | 2026-10-20 |
+| 11 | `aws:PrincipalAccount` is in the request context of every request; for anonymous requests its value is `anonymous`. `aws:PrincipalArn` holds the role ARN (not the session ARN) for assumed roles and is absent for anonymous requests | https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html | 2026-10-21 |
+| 12 | Server access log delivery needs `s3:PutObject` for `logging.s3.amazonaws.com` on the destination bucket, limited with `aws:SourceArn` and `aws:SourceAccount`; Deny statements must not prevent delivery | https://docs.aws.amazon.com/AmazonS3/latest/userguide/enable-server-access-logging.html | 2026-10-21 |
 
 The assertion that the requirements input asked to verify was the Kiro reading rules and paths for `AGENTS.md` and steering files.
 Rows 1 to 6 handle it.
