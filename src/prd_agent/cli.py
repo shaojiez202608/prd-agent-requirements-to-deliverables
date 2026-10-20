@@ -45,13 +45,20 @@ def cmd_compile_prompt(a) -> int:
 def cmd_generate(a) -> int:
     data = _load(a.intake)
     try:
-        files = generate.generate(data, Path(a.out), log=print)
+        result = generate.generate(data, Path(a.out), log=print)
     except generate.InsufficientInput as exc:
         print(f"Not generating: {len(exc.pending)} pending confirmation item(s).")
         for p in exc.pending:
             print(p.render())
         return 2
-    print(f"Wrote {len(files)} files to {a.out}")
+    except (pdf.PdfTextError, OSError, KeyError) as exc:
+        print(f"error: generation failed, {a.out} was not changed: {exc}", file=sys.stderr)
+        return 3
+    print(f"Wrote {len(result.files)} files to {a.out}")
+    if not result.ok:
+        print("Validation: FAIL. The files were written for inspection; see PROGRESS.md and run prd-agent validate.",
+              file=sys.stderr)
+        return 1
     return 0
 
 

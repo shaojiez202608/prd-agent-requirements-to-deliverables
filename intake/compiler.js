@@ -103,6 +103,38 @@
     }
   }
 
+  function textValues(field, value) {
+    if (field.type === "text" && typeof value === "string") return [cleanText(value)];
+    if (field.type === "lines") return cleanLines(value);
+    return [];
+  }
+
+  var LATIN1_MESSAGE = "contains characters outside Latin-1, which the quick-start PDF cannot render; " +
+    "use Latin-1 text or do not request quick_start";
+
+  function outsideLatin1(t) { return Array.from(t).some(function (ch) { return ch.codePointAt(0) > 0xFF; }); }
+
+  // Reserved markers (all free text) and Latin-1 (text that reaches the quick-start PDF).
+  function checkTextRules(schema, field, value, path, latin1, out) {
+    var texts = textValues(field, value);
+    if (texts.length === 0) return;
+    var markers = schema.rules.reserved_text || [];
+    for (var i = 0; i < markers.length; i++) {
+      var m = markers[i];
+      if (texts.some(function (t) { return t.indexOf(m) >= 0; })) {
+        out.push(item("invalid", path, "must not contain " + m + " (reserved for markers in the deliverables)"));
+        break;
+      }
+    }
+    if (latin1 && texts.some(outsideLatin1)) out.push(item("invalid", path, LATIN1_MESSAGE));
+  }
+
+  function pdfRequested(intake, schema) {
+    var rule = schema.rules.latin1_text;
+    var outputs = isObj(intake.deliverables) ? intake.deliverables.outputs : null;
+    return !!rule && Array.isArray(outputs) && outputs.indexOf(rule.when_output) >= 0;
+  }
+
   function present(field, value) {
     if (field.type === "lines") return cleanLines(value).length > 0;
     return !isEmpty(value);
@@ -110,7 +142,7 @@
 
   function col(columns, key) { return columns.filter(function (c) { return c.key === key; })[0]; }
 
-  function checkProperty(schema, columns, prop, idx, out) {
+  function checkProperty(schema, columns, prop, idx, out, pdf) {
     var base = "thing_model.properties[" + idx + "]";
     if (!isObj(prop)) { out.push(item("invalid", base, "must be an object")); return; }
     columns.forEach(function (c) {
@@ -121,6 +153,8 @@
         return;
       }
       checkScalar(c, val, path, out);
+      var latin1 = !!pdf && ((schema.rules.latin1_text || {}).columns || []).indexOf(c.key) >= 0;
+      checkTextRules(schema, c, val, path, latin1, out);
     });
 
     var dtype = prop.data_type;
@@ -191,6 +225,8 @@
       out.push(item("invalid", "schema_version", "expected " + schema.schema_version));
     if (typeof intake.variant !== "string" || !Object.prototype.hasOwnProperty.call(schema.variants, intake.variant))
       out.push(item("invalid", "variant", "expected one of " + Object.keys(schema.variants).join(", ")));
+    var pdf = pdfRequested(intake, schema);
+    var latin1Fields = (schema.rules.latin1_text || {}).fields || [];
     schema.sections.forEach(function (section) {
       var sec = isObj(intake[section.key]) ? intake[section.key] : {};
       section.fields.forEach(function (field) {
@@ -199,7 +235,7 @@
         if (field.type === "properties") {
           var props = Array.isArray(val) ? val : [];
           if (props.length === 0) { out.push(item("missing", path, "at least one property is required")); return; }
-          props.forEach(function (p, i) { checkProperty(schema, field.columns, p, i, out); });
+          props.forEach(function (p, i) { checkProperty(schema, field.columns, p, i, out, pdf); });
           checkUnique(props, out);
           return;
         }
@@ -208,6 +244,12 @@
           return;
         }
         checkScalar(field, val, path, out);
+        checkTextRules(schema, field, val, path, pdf && latin1Fields.indexOf(path) >= 0, out);
+        if (path === "deliverables.outputs" && Array.isArray(val)) {
+          var need = (schema.rules.required_outputs || []).filter(function (o) { return val.indexOf(o) < 0; });
+          if (need.length) out.push(item("missing", path, "must include " + need.join(", ") +
+            " (the reference for every consistency check)"));
+        }
       });
     });
     return out;

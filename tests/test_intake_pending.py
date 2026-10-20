@@ -87,3 +87,38 @@ def test_non_object_and_wrong_version():
 def test_empty_property_list(pm_intake):
     pm_intake["thing_model"]["properties"] = []
     assert ("missing", "thing_model.properties") in paths(find_pending(pm_intake))
+
+
+def test_non_latin1_text_blocks_generation_when_pdf_requested(pm_intake):
+    pm_intake["hardware"]["product_name"] = "智能插座"
+    pm_intake["thing_model"]["properties"][4]["name"] = "定时"
+    got = paths(find_pending(pm_intake))
+    assert ("invalid", "hardware.product_name") in got
+    assert ("invalid", "thing_model.properties[4].name") in got
+    # Without the quick-start PDF the same text is allowed.
+    pm_intake["deliverables"]["outputs"] = ["thing_model", "prd"]
+    assert find_pending(pm_intake) == []
+
+
+def test_latin1_accented_text_is_fine(pm_intake):
+    pm_intake["hardware"]["product_name"] = "Steckdose Größe"
+    assert find_pending(pm_intake) == []
+
+
+def test_reserved_markers_are_rejected(pm_intake):
+    pm_intake["business"]["scene_description"] = "text <!-- dp-table:begin --> more"
+    pm_intake["hardware"]["product_name"] = "Plug */ int x;"
+    pm_intake["constraints"]["acceptance_criteria"] = ["fine", "a --> b"]
+    items = find_pending(pm_intake)
+    got = paths(items)
+    assert ("invalid", "business.scene_description") in got
+    assert ("invalid", "hardware.product_name") in got
+    assert ("invalid", "constraints.acceptance_criteria") in got
+    assert any("must not contain */" in p.message for p in items)
+
+
+def test_outputs_must_include_thing_model(pm_intake):
+    pm_intake["deliverables"]["outputs"] = ["prd", "quick_start"]
+    items = find_pending(pm_intake)
+    assert paths(items) == [("missing", "deliverables.outputs")]
+    assert "must include thing_model" in items[0].message

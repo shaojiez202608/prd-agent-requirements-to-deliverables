@@ -240,6 +240,11 @@
   ],
   "rules": {
     "numeric_types": ["int", "float"],
+    "required_outputs": ["thing_model"],
+    "reserved_text": ["<!--", "-->", "*/"],
+    "latin1_text": {"when_output": "quick_start",
+                    "fields": ["hardware.product_name", "constraints.offline_behavior"],
+                    "columns": ["name", "unit", "enum_values", "interaction"]},
     "control_requirements": {
       "toggle": {"data_types": ["bool"], "access": ["RW", "W"]},
       "value_display": {"data_types": ["int", "float"], "access": ["R"]},

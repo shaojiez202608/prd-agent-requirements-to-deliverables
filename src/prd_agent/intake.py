@@ -126,6 +126,39 @@ def _check_scalar(field: dict[str, Any], value: Any, path: str, out: list[Pendin
             out.append(PendingItem("invalid", path, f"must be <= {field['max']}"))
 
 
+def _text_values(field: dict[str, Any], value: Any) -> list[str]:
+    if field["type"] == "text" and isinstance(value, str):
+        return [clean_text(value)]
+    if field["type"] == "lines":
+        return clean_lines(value)
+    return []
+
+
+LATIN1_MESSAGE = ("contains characters outside Latin-1, which the quick-start PDF cannot render; "
+                  "use Latin-1 text or do not request quick_start")
+
+
+def _check_text_rules(schema: dict[str, Any], field: dict[str, Any], value: Any, path: str, latin1: bool,
+                      out: list[PendingItem]) -> None:
+    """Reserved markers (all free text) and Latin-1 (text that reaches the quick-start PDF)."""
+    texts = _text_values(field, value)
+    if not texts:
+        return
+    for marker in schema["rules"].get("reserved_text", []):
+        if any(marker in t for t in texts):
+            out.append(PendingItem("invalid", path, f"must not contain {marker} (reserved for markers in the deliverables)"))
+            break
+    if latin1 and any(ord(ch) > 0xFF for t in texts for ch in t):
+        out.append(PendingItem("invalid", path, LATIN1_MESSAGE))
+
+
+def _pdf_requested(intake: dict[str, Any], schema: dict[str, Any]) -> bool:
+    rule = schema["rules"].get("latin1_text")
+    deliverables = intake.get("deliverables")
+    outputs = deliverables.get("outputs") if isinstance(deliverables, dict) else None
+    return bool(rule) and isinstance(outputs, list) and rule["when_output"] in outputs
+
+
 def _present(field: dict[str, Any], value: Any) -> bool:
     if field["type"] == "lines":
         return len(clean_lines(value)) > 0
@@ -133,7 +166,7 @@ def _present(field: dict[str, Any], value: Any) -> bool:
 
 
 def _check_property(schema: dict[str, Any], columns: list[dict[str, Any]], prop: Any, idx: int,
-                    out: list[PendingItem]) -> None:
+                    out: list[PendingItem], pdf: bool = False) -> None:
     base = f"thing_model.properties[{idx}]"
     if not isinstance(prop, dict):
         out.append(PendingItem("invalid", base, "must be an object"))
@@ -146,6 +179,8 @@ def _check_property(schema: dict[str, Any], columns: list[dict[str, Any]], prop:
                 out.append(PendingItem("missing", path, "required field is empty"))
             continue
         _check_scalar(col, val, path, out)
+        latin1 = pdf and col["key"] in schema["rules"].get("latin1_text", {}).get("columns", [])
+        _check_text_rules(schema, col, val, path, latin1, out)
 
     dtype = prop.get("data_type")
     numeric = schema["rules"]["numeric_types"]
@@ -199,6 +234,8 @@ def find_pending(intake: Any, schema: dict[str, Any] | None = None) -> list[Pend
         out.append(PendingItem("invalid", "schema_version", f"expected {schema['schema_version']}"))
     if not isinstance(intake.get("variant"), str) or intake.get("variant") not in schema["variants"]:
         out.append(PendingItem("invalid", "variant", "expected one of " + ", ".join(schema["variants"])))
+    pdf = _pdf_requested(intake, schema)
+    latin1_fields = schema["rules"].get("latin1_text", {}).get("fields", [])
     for section in schema["sections"]:
         sec = intake.get(section["key"])
         sec = sec if isinstance(sec, dict) else {}
@@ -211,7 +248,7 @@ def find_pending(intake: Any, schema: dict[str, Any] | None = None) -> list[Pend
                     out.append(PendingItem("missing", path, "at least one property is required"))
                     continue
                 for i, prop in enumerate(props):
-                    _check_property(schema, field["columns"], prop, i, out)
+                    _check_property(schema, field["columns"], prop, i, out, pdf)
                 _check_unique(props, out)
                 continue
             if not _present(field, val):
@@ -219,6 +256,12 @@ def find_pending(intake: Any, schema: dict[str, Any] | None = None) -> list[Pend
                     out.append(PendingItem("missing", path, "required field is empty"))
                 continue
             _check_scalar(field, val, path, out)
+            _check_text_rules(schema, field, val, path, pdf and path in latin1_fields, out)
+            if path == "deliverables.outputs" and isinstance(val, list):
+                need = [o for o in schema["rules"].get("required_outputs", []) if o not in val]
+                if need:
+                    out.append(PendingItem("missing", path, "must include " + ", ".join(need)
+                                           + " (the reference for every consistency check)"))
     return out
 
 

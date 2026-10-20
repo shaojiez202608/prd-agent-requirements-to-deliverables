@@ -41,6 +41,15 @@ def _cases():
     p.append({"id": 2, "identifier": "active_power", "control": "toggle", "access": "R"})
     odd["constraints"]["acceptance_criteria"] = "line one\r\n\r\n  line two  \n"
     cases.append(odd)
+    cjk = copy.deepcopy(pm)  # Latin-1 rule applies only to text that reaches the quick-start PDF
+    cjk["hardware"]["product_name"] = "智能插座 \U0001F50C"
+    cjk["thing_model"]["properties"][0]["interaction"] = "点击切换"
+    cjk["business"]["scene_description"] = "家庭用电 <!-- dp-table:end --> */"
+    cjk["constraints"]["acceptance_criteria"] = ["ok", "a --> b"]
+    cases.append(cjk)
+    no_pdf = copy.deepcopy(cjk)
+    no_pdf["deliverables"]["outputs"] = ["prd", "panel_spec"]
+    cases.append(no_pdf)
     return cases
 
 

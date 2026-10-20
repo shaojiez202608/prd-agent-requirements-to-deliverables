@@ -11,8 +11,12 @@ output that agent-produced files can be compared against.
 from __future__ import annotations
 
 import html
+import os
 import re
+import shutil
+import tempfile
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +34,16 @@ class InsufficientInput(Exception):
     def __init__(self, pending: list[PendingItem]):
         super().__init__(f"{len(pending)} pending confirmation item(s)")
         self.pending = pending
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    files: list[str]
+    validation: str  # "PASS" or "FAIL"
+
+    @property
+    def ok(self) -> bool:
+        return self.validation == "PASS"
 
 
 def fill(template: str, values: dict[str, str]) -> str:
@@ -264,9 +278,27 @@ def planned_files(outputs: list[str]) -> list[str]:
     return files
 
 
+def _install(tmp: Path, out_dir: Path) -> None:
+    """Move a completely generated folder into place. Nothing is touched before this point."""
+    if not out_dir.exists():
+        os.replace(tmp, out_dir)
+        return
+    if not out_dir.is_dir():
+        raise NotADirectoryError(f"{out_dir} exists and is not a directory")
+    for path in sorted(p for p in tmp.rglob("*") if p.is_file()):
+        target = out_dir / path.relative_to(tmp)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(path, target)
+
+
 def generate(intake: Any, out_dir: Path, schema: dict[str, Any] | None = None,
-             log: Callable[[str], None] | None = None) -> list[str]:
-    """Generate deliverables. Raises InsufficientInput (and writes nothing) if any item is pending."""
+             log: Callable[[str], None] | None = None) -> GenerationResult:
+    """Generate deliverables.
+
+    Raises InsufficientInput (and writes nothing) if any item is pending. All files are first written to a
+    temporary folder next to *out_dir* and moved into place only after every step succeeded, so a failure
+    leaves *out_dir* untouched.
+    """
     schema = schema or load_schema()
     pending = find_pending(intake, schema)
     if pending:
@@ -277,8 +309,18 @@ def generate(intake: Any, out_dir: Path, schema: dict[str, Any] | None = None,
     writers = _writers(ctx, model)
     planned = planned_files(intake["deliverables"]["outputs"])
     out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.parent.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix=f".{out_dir.name}.tmp-", dir=out_dir.parent))
+    try:
+        status, done = _generate_into(work, planned, writers, ctx, log)
+        _install(work, out_dir)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return GenerationResult(done, status)
 
+
+def _generate_into(out_dir: Path, planned: list[str], writers: dict[str, Callable[[Path], None]],
+                   ctx: dict[str, str], log: Callable[[str], None] | None) -> tuple[str, list[str]]:
     done: list[str] = []
     reports: list[tuple[int, str, list[str]]] = []
 
@@ -313,5 +355,7 @@ def generate(intake: Any, out_dir: Path, schema: dict[str, Any] | None = None,
     reports.append((100, f"All deliverables written. Validation: {status}", list(done)))
     if log:
         log(f"[PROGRESS 100%] Validation: {status} | files so far: {', '.join(done)}")
+        if not report.ok:
+            log(report.render_text().rstrip("\n"))
     (out_dir / "PROGRESS.md").write_text(render_progress(planned, reports, validation=status), encoding="utf-8")
-    return done
+    return status, done

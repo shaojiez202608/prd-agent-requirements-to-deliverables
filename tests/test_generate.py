@@ -76,3 +76,29 @@ def test_ids_annotated_on_panel_preview(generated):
     for i in range(1, 7):
         assert f'data-dp-id="{i}"' in html
         assert f'<span class="dp">ID {i} |' in html
+
+
+def test_failed_generation_leaves_no_partial_output(tmp_path, pm_intake, monkeypatch):
+    import prd_agent.generate as gen
+
+    def fail_pdf(md, out, title=""):
+        raise OSError("disk full (simulated)")
+
+    monkeypatch.setattr(gen, "render_markdown_pdf", fail_pdf)
+    out = tmp_path / "out"
+    with pytest.raises(OSError):
+        generate(pm_intake, out)
+    assert not out.exists()
+    assert list(tmp_path.iterdir()) == []  # temporary folder removed
+
+
+def test_regenerating_into_existing_folder_replaces_files(tmp_path, pm_intake):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "keep.txt").write_text("not generated", encoding="utf-8")
+    (out / "PRD.md").write_text("old", encoding="utf-8")
+    result = generate(pm_intake, out)
+    assert result.ok and "PRD.md" in result.files
+    assert (out / "PRD.md").read_text(encoding="utf-8") != "old"
+    assert (out / "keep.txt").is_file()
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["out"]
