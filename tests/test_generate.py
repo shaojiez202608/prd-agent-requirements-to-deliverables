@@ -56,8 +56,13 @@ def test_subset_of_deliverables(tmp_path, pm_intake):
     out = tmp_path / "out"
     generate(pm_intake, out)
     assert sorted(p.name for p in out.iterdir()) == ["PRD.md", "PROGRESS.md", "thing-model.json"]
-    assert check_folder(out).ok
-    assert check_progress(out) == []
+    outputs = pm_intake["deliverables"]["outputs"]
+    assert check_folder(out, outputs=outputs).ok
+    assert check_progress(out, outputs=outputs) == []
+    # Without the intake, the FR-7 core files are required and their absence is reported.
+    missing = {d.file for d in check_folder(out).differences if d.kind == "missing_file"}
+    assert missing == {"quick-start.md", "quick-start.pdf", "device-demo/dp_table.h"}
+    assert any("FR-7 core deliverable" in p.message for p in check_progress(out))
 
 
 def test_open_items_instead_of_guesses(generated):

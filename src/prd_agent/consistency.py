@@ -9,7 +9,12 @@ copy of (ID, identifier, access) in a fixed place:
 - panel-preview.html: ``data-dp-id`` / ``data-dp-identifier`` / ``data-dp-access`` attributes.
 - architecture.mmd: node labels ``"DP <id> <identifier> <access>"``.
 - device-demo/dp_table.h: ``#define DP_ID_<IDENTIFIER> <id>`` and
-  ``DP_DEFINE(<id>, "<identifier>", DP_<access>, ...)``.
+  ``DP_DEFINE(<id>, "<identifier>", DP_<access>, ...)``. Both kinds must cover every property.
+
+Visible text is checked too where it follows a fixed pattern ("mentions"): ``ID <id> `<identifier>` ``
+and ``Card `<identifier>` (ID <id>)`` in Markdown, ``"<id>":`` keys in fenced message examples, and the
+``<span class="dp">ID <id> | <identifier> | <access></span>`` badge in the panel preview. A mention must agree
+with the thing model; it is not required to exist. Prose in other forms is not checked.
 
 Rules are in knowledge-base/09-consistency-and-change-tracking/README.md.
 """
@@ -22,6 +27,8 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .prompt import CORE_FILES, planned_files
+
 ACCESS = ("R", "RW", "W")
 
 # file -> extractor name. Order is the report order.
@@ -33,8 +40,8 @@ SOURCES: list[tuple[str, str]] = [
     ("architecture.mmd", "mermaid"),
     ("device-demo/dp_table.h", "c_header"),
 ]
-# FR-7: these three must always be present.
-CORE_FILES = ["PRD.md", "quick-start.md", "device-demo/dp_table.h"]
+# Entry kinds each file must cover for every property: True = access-bearing entry, False = ID-only (#define).
+REQUIRED_KINDS: dict[str, tuple[bool, ...]] = {"c_header": (True, False)}
 
 
 @dataclass(frozen=True)
@@ -44,6 +51,7 @@ class Entry:
     id: int | None
     identifier: str | None
     access: str | None  # None when the source does not carry access (C #define)
+    mention: bool = False  # visible text, checked for agreement but not for coverage
 
 
 @dataclass(frozen=True)
@@ -136,10 +144,38 @@ def extract_markdown(name: str, text: str) -> list[Entry]:
             raise ExtractError(name, no, f"row has {len(cells)} cells, header has {len(cols)}")
         ident = cells[i_ident].strip("`").strip()
         out.append(Entry(name, no, _int(cells[i_id]), ident or None, cells[i_acc] or None))
+    return out + _markdown_mentions(name, lines, begin[0], end[0])
+
+
+_MD_ID_FIRST = re.compile(r"\bID ([0-9]+) `([A-Za-z0-9_]+)`(?: \((R|RW|W)\))?")
+_MD_IDENT_FIRST = re.compile(r"`([A-Za-z0-9_]+)` \(ID ([0-9]+)\)")
+_MD_JSON_KEY = re.compile(r'^\s*"([0-9]+)"\s*:')
+
+
+def _markdown_mentions(name: str, lines: list[str], begin: int, end: int) -> list[Entry]:
+    out, fenced = [], False
+    for i, line in enumerate(lines):
+        no = i + 1
+        if begin <= i <= end:
+            continue
+        if line.strip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            m = _MD_JSON_KEY.match(line)
+            if m:
+                out.append(Entry(name, no, int(m.group(1)), None, None, mention=True))
+            continue
+        for m in _MD_ID_FIRST.finditer(line):
+            out.append(Entry(name, no, int(m.group(1)), m.group(2), m.group(3), mention=True))
+        for m in _MD_IDENT_FIRST.finditer(line):
+            out.append(Entry(name, no, int(m.group(2)), m.group(1), None, mention=True))
     return out
 
 
 _HTML_TAG = re.compile(r"<[^>]*\bdata-dp-id\s*=[^>]*>", re.S)
+_HTML_BADGE = re.compile(r'<span class="dp">\s*ID ([0-9]+) \| ([A-Za-z0-9_]+) \| ([A-Z]+)\s*</span>')
+_HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 
 def _attr(tag: str, attr: str) -> str | None:
@@ -148,12 +184,17 @@ def _attr(tag: str, attr: str) -> str | None:
 
 
 def extract_html(name: str, text: str) -> list[Entry]:
+    # Comments are blanked (line breaks kept) so that commented-out markup is not read as an entry.
+    text = _HTML_COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), text)
     out = []
     for m in _HTML_TAG.finditer(text):
         tag = m.group(0)
         no = text.count("\n", 0, m.start()) + 1
         out.append(Entry(name, no, _int(_attr(tag, "data-dp-id") or ""), _attr(tag, "data-dp-identifier"),
                          _attr(tag, "data-dp-access")))
+    for m in _HTML_BADGE.finditer(text):
+        out.append(Entry(name, text.count("\n", 0, m.start()) + 1, int(m.group(1)), m.group(2), m.group(3),
+                         mention=True))
     return out
 
 
@@ -199,10 +240,10 @@ def reference_entries(path: Path) -> tuple[list[Entry], list[Difference]]:
     props = model.get("properties") if isinstance(model, dict) else None
     if not isinstance(props, list) or not props:
         return [], [Difference("thing-model.json", 0, "invalid_reference", "no properties list")]
-    id_lines = [no for no, ln in enumerate(text.splitlines(), 1) if re.match(r'^\s*"id"\s*:', ln)]
+    id_lines = _property_id_lines(text)
     entries, diffs = [], []
     for i, p in enumerate(props):
-        line = id_lines[i] if i < len(id_lines) else 0
+        line = id_lines.get(i, 0)
         pid = p.get("id") if isinstance(p, dict) else None
         if not isinstance(pid, int) or isinstance(pid, bool):
             diffs.append(Difference("thing-model.json", line, "invalid_reference", f"property {i} has no integer id"))
@@ -225,7 +266,89 @@ def reference_entries(path: Path) -> tuple[list[Entry], list[Difference]]:
     return entries, diffs
 
 
-def compare(ref: list[Entry], entries: list[Entry], name: str, anchor_line: int) -> list[Difference]:
+_JSON_SCALAR = re.compile(r'-?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|true|false|null')
+
+
+def _property_id_lines(text: str) -> dict[int, int]:
+    """Line of the ``"id"`` key of each object in the top-level ``properties`` array (index -> line).
+
+    A small scanner over text that is already known to be valid JSON, so only property-level ``id`` keys
+    count, whatever the indentation or nesting of other ``id`` keys.
+    """
+    found: dict[int, int] = {}
+    n = len(text)
+
+    def skip(i: int) -> int:
+        while i < n and text[i] in " \t\r\n":
+            i += 1
+        return i
+
+    def string_end(i: int) -> int:
+        i += 1
+        while text[i] != '"':
+            i += 2 if text[i] == "\\" else 1
+        return i + 1
+
+    def value(i: int, path: tuple) -> int:
+        i = skip(i)
+        c = text[i]
+        if c == "{":
+            i = skip(i + 1)
+            if text[i] == "}":
+                return i + 1
+            while True:
+                k_end = string_end(i)
+                key = json.loads(text[i:k_end])
+                if len(path) == 2 and path[0] == "properties" and key == "id":
+                    found[path[1]] = text.count("\n", 0, i) + 1
+                i = value(skip(k_end) + 1, (*path, key))  # skip ':'
+                i = skip(i)
+                if text[i] == "}":
+                    return i + 1
+                i = skip(i + 1)  # skip ','
+        if c == "[":
+            i = skip(i + 1)
+            if text[i] == "]":
+                return i + 1
+            idx = 0
+            while True:
+                i = skip(value(i, (*path, idx)) if path == ("properties",) else value(i, (*path, "*")))
+                idx += 1
+                if text[i] == "]":
+                    return i + 1
+                i = skip(i + 1)
+        if c == '"':
+            return string_end(i)
+        m = _JSON_SCALAR.match(text, i)
+        return m.end() if m else i + 1
+
+    try:
+        value(0, ())
+    except (IndexError, ValueError, RecursionError):
+        return {}
+    return found
+
+
+def compare_mentions(ref: list[Entry], mentions: list[Entry], name: str) -> list[Difference]:
+    by_id = {e.id: e for e in ref}
+    diffs = []
+    for m in mentions:
+        r = by_id.get(m.id)
+        label = f"ID {m.id}" + (f" {m.identifier}" if m.identifier else "")
+        if r is None:
+            diffs.append(Difference(name, m.line, "text_mismatch", f"visible text names {label}, not in the thing model"))
+        elif m.identifier is not None and m.identifier != r.identifier:
+            diffs.append(Difference(name, m.line, "text_mismatch",
+                                    f"visible text pairs ID {m.id} with {m.identifier}, thing model has {r.identifier}",
+                                    r.line))
+        elif m.access is not None and m.access != r.access:
+            diffs.append(Difference(name, m.line, "text_mismatch",
+                                    f"visible text gives {label} access {m.access}, thing model has {r.access}", r.line))
+    return diffs
+
+
+def compare(ref: list[Entry], entries: list[Entry], name: str, anchor_line: int,
+            kinds: tuple[bool, ...] = (True,)) -> list[Difference]:
     by_id = {e.id: e for e in ref}
     by_ident = {e.identifier: e for e in ref}
     diffs: list[Difference] = []
@@ -268,8 +391,7 @@ def compare(ref: list[Entry], entries: list[Entry], name: str, anchor_line: int)
             continue
         diffs.append(Difference(name, e.line, "unknown_entry",
                                 f"ID {e.id} {e.identifier} is not in the thing model"))
-    kinds = {has_acc for (_, has_acc) in seen_ids} or {True}
-    for has_acc in sorted(kinds):
+    for has_acc in sorted(kinds, reverse=True):
         for r in ref:
             if (r.id, has_acc) not in covered:
                 what = "access-bearing entry" if has_acc else "#define"
@@ -282,11 +404,23 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def check_folder(folder: Path, required: list[str] | None = None) -> Report:
+def required_files(folder: Path, outputs: list[str] | None = None) -> list[str]:
+    """Files that must exist in *folder*.
+
+    With *outputs* (the intake's ``deliverables.outputs``) exactly the files those outputs produce. Without it,
+    the FR-7 core files plus any file planned in PROGRESS.md: the progress log can add files, never remove
+    the core ones.
+    """
+    if outputs is not None:
+        return planned_files(outputs)
+    planned = _planned_from_progress(folder)
+    return CORE_FILES + [f for f in planned if f not in CORE_FILES]
+
+
+def check_folder(folder: Path, required: list[str] | None = None, outputs: list[str] | None = None) -> Report:
     """Check every known deliverable in *folder* against thing-model.json.
 
-    *required*: files that must exist. ``None`` means the planned files from
-    PROGRESS.md if present, otherwise the three FR-7 files.
+    *required*: files that must exist. ``None`` means ``required_files(folder, outputs)``.
     """
     folder = Path(folder)
     report = Report()
@@ -299,7 +433,7 @@ def check_folder(folder: Path, required: list[str] | None = None) -> Report:
     report.differences.extend(ref_diffs)
 
     if required is None:
-        required = _planned_from_progress(folder) or CORE_FILES
+        required = required_files(folder, outputs)
     all_diffs: list[Difference] = []
     for name, kind in SOURCES:
         path = folder / name
@@ -315,11 +449,14 @@ def check_folder(folder: Path, required: list[str] | None = None) -> Report:
         except ExtractError as exc:
             report.differences.append(Difference(exc.file, exc.line, "unreadable", exc.message))
             continue
+        mentions = [e for e in entries if e.mention]
+        entries = [e for e in entries if not e.mention]
         report.checked[name] = len(entries)
         if not entries:
             report.differences.append(Difference(name, 0, "no_entries", "no thing model entries found"))
             continue
-        all_diffs.extend(compare(ref, entries, name, entries[0].line))
+        all_diffs.extend(compare(ref, entries, name, entries[0].line, REQUIRED_KINDS.get(kind, (True,))))
+        all_diffs.extend(compare_mentions(ref, mentions, name))
 
     report.differences.extend(all_diffs)
     _pdf_freshness(folder, required, report)
@@ -364,7 +501,8 @@ def _reference_hint(report: Report, diffs: list[Difference]) -> None:
         return
     by_ref: dict[int, set[str]] = {}
     for d in diffs:
-        if d.reference_line and d.kind in ("id_mismatch", "identifier_mismatch", "access_mismatch", "missing"):
+        if d.reference_line and d.kind in ("id_mismatch", "identifier_mismatch", "access_mismatch", "missing",
+                                             "text_mismatch"):
             by_ref.setdefault(d.reference_line, set()).add(d.file)
     for line, files in sorted(by_ref.items()):
         if files == set(report.checked):

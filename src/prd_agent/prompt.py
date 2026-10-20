@@ -58,6 +58,15 @@ DELIVERABLE_FILES: dict[str, list[str]] = {
                     "device-demo/hal_port_host.c", "device-demo/README.md"],
 }
 
+# FR-7: the PRD, the quick-start guide (Markdown and PDF) and the device skeleton header must always be present
+# unless the intake explicitly requested a smaller set of deliverables.
+CORE_FILES = ["PRD.md", "quick-start.md", "quick-start.pdf", "device-demo/dp_table.h"]
+
+
+def planned_files(outputs: list[str]) -> list[str]:
+    """Files produced for the requested deliverable keys, in deliverable order."""
+    return [f for key in DELIVERABLE_FILES if key in outputs for f in DELIVERABLE_FILES[key]]
+
 
 _MARKER = re.compile(r"(intake)-", re.IGNORECASE | re.ASCII)
 

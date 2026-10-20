@@ -68,3 +68,19 @@ def test_chinese_product_name_is_a_pending_item_not_a_crash(tmp_path, capsys):
     assert main(["generate", str(src), "--out", str(tmp_path / "o")]) == 2
     assert "outside Latin-1" in capsys.readouterr().out
     assert not (tmp_path / "o").exists()
+
+
+def test_validate_with_intake_for_a_smaller_deliverable_set(tmp_path):
+    import json
+
+    data = json.loads((SAMPLES / "smart-plug.pm.intake.json").read_text(encoding="utf-8"))
+    data["deliverables"]["outputs"] = ["thing_model", "prd"]
+    src = tmp_path / "subset.json"
+    src.write_text(json.dumps(data), encoding="utf-8")
+    out = tmp_path / "o"
+    assert main(["generate", str(src), "--out", str(out)]) == 0
+    assert main(["validate", str(out)]) == 1  # FR-7 core files missing
+    assert main(["check-progress", str(out)]) == 1
+    assert main(["validate", str(out), "--intake", str(src)]) == 0
+    assert main(["check-progress", str(out), "--intake", str(src)]) == 0
+    assert main(["publish", str(out), "--dest", str(tmp_path / "dist"), "--name", "v1", "--intake", str(src)]) == 0

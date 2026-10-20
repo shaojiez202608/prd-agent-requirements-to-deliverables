@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from .prompt import CORE_FILES, planned_files
+
 PERCENTS = [10, 25, 45, 70, 90, 100]
 
 # Milestone -> files that must be listed no later than this milestone (if planned).
@@ -73,7 +75,12 @@ def stub_reason(path: Path) -> str | None:
     return None if len(lines) >= 3 else "fewer than 3 non-empty lines (looks like a skeleton)"
 
 
-def check_progress(folder: Path) -> list[ProgressProblem]:
+def check_progress(folder: Path, outputs: list[str] | None = None) -> list[ProgressProblem]:
+    """Check PROGRESS.md against the files on disk.
+
+    The planned list must contain the FR-7 core files, or with *outputs* (the intake's deliverables) every
+    file those outputs produce, so that removing a file from the plan cannot hide a missing deliverable.
+    """
     folder = Path(folder)
     path = folder / "PROGRESS.md"
     if not path.is_file():
@@ -119,6 +126,15 @@ def check_progress(folder: Path) -> list[ProgressProblem]:
 
     if not planned:
         problems.append(ProgressProblem(0, "no 'Planned files:' list"))
+    elif outputs is not None:
+        for f in planned_files(outputs):
+            if f not in planned:
+                problems.append(ProgressProblem(0, f"planned files omit {f}, which the intake requests"))
+    else:
+        for f in CORE_FILES:
+            if f not in planned:
+                problems.append(ProgressProblem(0, f"planned files omit {f}, an FR-7 core deliverable "
+                                                   "(pass --intake for a smaller deliverable set)"))
     got = [s["pct"] for s in sections]
     if got != PERCENTS:
         problems.append(ProgressProblem(sections[0]["line"] if sections else 0,

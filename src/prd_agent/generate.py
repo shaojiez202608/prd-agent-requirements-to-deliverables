@@ -23,7 +23,7 @@ from typing import Any
 from .intake import REPO_ROOT, PendingItem, clean_lines, clean_text, find_pending, format_number, load_schema
 from .pdf import render_markdown_pdf
 from .progress import MILESTONES, render_progress
-from .prompt import DELIVERABLE_FILES
+from .prompt import DELIVERABLE_FILES, planned_files
 from .thing_model import build_thing_model, dump_thing_model
 
 KB = REPO_ROOT / "knowledge-base"
@@ -269,14 +269,6 @@ def _writers(ctx: dict[str, str], model: dict[str, Any]) -> dict[str, Callable[[
         "device-demo/hal_port_host.c": static("07-device-demo-template/hal_port_host.c"),
         "device-demo/README.md": text("07-device-demo-template/README.md.tpl"),
     }
-
-
-def planned_files(outputs: list[str]) -> list[str]:
-    files: list[str] = []
-    for key in DELIVERABLE_FILES:
-        if key in outputs:
-            files.extend(DELIVERABLE_FILES[key])
-    return files
 
 
 def _install(tmp: Path, out_dir: Path) -> None:

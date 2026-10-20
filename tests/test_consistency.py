@@ -4,6 +4,8 @@ import json
 import re
 import shutil
 
+import pytest
+
 from prd_agent.consistency import check_folder
 
 
@@ -123,3 +125,94 @@ def test_duplicate_id_in_thing_model(generated):
     tm.write_text(json.dumps(model, indent=2) + "\n", encoding="utf-8")
     kinds = [d.kind for d in check_folder(generated).differences if d.file == "thing-model.json"]
     assert "duplicate_id" in kinds
+
+
+def _drop_from_plan(folder, names):
+    log = folder / "PROGRESS.md"
+    lines = [ln for ln in log.read_text(encoding="utf-8").splitlines() if ln[2:] not in names]
+    log.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_core_files_cannot_be_planned_away(generated):
+    """Deleting the FR-7 files and removing them from PROGRESS.md must not pass any gate."""
+    from prd_agent.progress import check_progress
+    from prd_agent.publish import PublishRefused, publish
+
+    for rel in ("PRD.md", "quick-start.md", "quick-start.pdf"):
+        (generated / rel).unlink()
+    shutil.rmtree(generated / "device-demo")
+    _drop_from_plan(generated, {"PRD.md", "quick-start.md", "quick-start.pdf", "device-demo/dp_table.h",
+                                "device-demo/app_main.c", "device-demo/hal_port.h", "device-demo/hal_port_host.c",
+                                "device-demo/README.md"})
+    report = check_folder(generated)
+    missing = {d.file for d in report.differences if d.kind == "missing_file"}
+    assert missing == {"PRD.md", "quick-start.md", "quick-start.pdf", "device-demo/dp_table.h"}
+    assert sum("FR-7 core deliverable" in p.message for p in check_progress(generated)) == 4
+    with pytest.raises(PublishRefused):
+        publish(generated, str(generated.parent / "dist"), "v1")
+
+
+def test_intake_outputs_define_required_files(generated, pm_intake):
+    (generated / "panel-spec.md").unlink()
+    outputs = pm_intake["deliverables"]["outputs"]
+    assert [(d.file, d.kind) for d in check_folder(generated, outputs=outputs).differences] == [
+        ("panel-spec.md", "missing_file")]
+    assert check_folder(generated, outputs=["thing_model", "prd", "quick_start", "device_demo"]).ok
+
+
+def test_header_without_dp_define_lines_fails(generated):
+    h = generated / "device-demo" / "dp_table.h"
+    h.write_text("".join(ln for ln in h.read_text(encoding="utf-8").splitlines(keepends=True)
+                         if "DP_DEFINE(" not in ln or "#define DP_DEFINE" in ln), encoding="utf-8")
+    diffs = [d for d in check_folder(generated).differences if d.file == "device-demo/dp_table.h"]
+    assert len(diffs) == 6 and {d.kind for d in diffs} == {"missing"}
+    assert all("access-bearing entry" in d.message for d in diffs)
+
+
+def test_header_without_id_defines_fails(generated):
+    h = generated / "device-demo" / "dp_table.h"
+    h.write_text(re.sub(r"^#define DP_ID_.*\n", "", h.read_text(encoding="utf-8"), flags=re.M), encoding="utf-8")
+    diffs = [d for d in check_folder(generated).differences if d.file == "device-demo/dp_table.h"]
+    assert len(diffs) == 6 and all("#define" in d.message for d in diffs)
+
+
+def test_visible_ids_are_checked(generated):
+    edit(generated / "PRD.md", "- ID 5 `timer_task` (Timer tasks)", "- ID 7 `timer_task` (Timer tasks)")
+    edit(generated / "panel-spec.md", "Card `overload_alarm` (ID 3)", "Card `overload_alarm` (ID 4)")
+    edit(generated / "panel-spec.md", "- ID 2 `active_power` (R)", "- ID 2 `active_power` (RW)")
+    edit(generated / "panel-preview.html", '<span class="dp">ID 1 | power_switch | RW</span>',
+         '<span class="dp">ID 1 | power_toggle | RW</span>')
+    edit(generated / "quick-start.md", '  "2": ', '  "12": ')
+    diffs = [(d.file, d.kind) for d in check_folder(generated).differences if d.kind != "stale_pdf"]
+    assert sorted(diffs) == [("PRD.md", "text_mismatch"), ("panel-preview.html", "text_mismatch"),
+                             ("panel-spec.md", "text_mismatch"), ("panel-spec.md", "text_mismatch"),
+                             ("quick-start.md", "text_mismatch")]
+
+
+def test_commented_out_html_is_ignored(generated):
+    page = generated / "panel-preview.html"
+    edit(page, "</body>", '<!-- <div data-dp-id="99" data-dp-identifier="ghost" data-dp-access="R">\n'
+         '<span class="dp">ID 99 | ghost | R</span></div> -->\n</body>')
+    assert check_folder(generated).ok
+
+
+def test_reference_lines_ignore_nested_ids(generated):
+    tm = generated / "thing-model.json"
+    model = json.loads(tm.read_text(encoding="utf-8"))
+    model["product"]["id"] = "nested, not a property"
+    model["properties"][0]["panel"]["id"] = 0
+    tm.write_text(json.dumps(model, indent=2) + "\n", encoding="utf-8")
+    edit(generated / "PRD.md", "| `timer_task` | 5 |", "| `timer_task` | 7 |")
+    d = next(d for d in check_folder(generated).differences if d.kind == "id_mismatch")
+    lines = tm.read_text(encoding="utf-8").splitlines()
+    assert lines[d.reference_line - 1].strip() == '"id": 5,'
+
+
+def test_reference_lines_compact_json(generated):
+    from prd_agent.consistency import reference_entries
+
+    tm = generated / "thing-model.json"
+    model = json.loads(tm.read_text(encoding="utf-8"))
+    tm.write_text(json.dumps(model, separators=(",", ":")) + "\n", encoding="utf-8")
+    entries, diffs = reference_entries(tm)
+    assert diffs == [] and [e.line for e in entries] == [1] * 6

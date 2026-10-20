@@ -40,9 +40,9 @@ def build_manifest(folder: Path, bundle_name: str) -> dict[str, Any]:
     }
 
 
-def _gate(folder: Path) -> None:
-    report = check_folder(folder)
-    problems = check_progress(folder)
+def _gate(folder: Path, outputs: list[str] | None = None) -> None:
+    report = check_folder(folder, outputs=outputs)
+    problems = check_progress(folder, outputs=outputs)
     if not report.ok or problems:
         msg = report.render_text() + "".join(p.render() + "\n" for p in problems)
         raise PublishRefused("bundle is not consistent; fix and re-run validate\n" + msg)
@@ -56,9 +56,11 @@ def _split_s3(uri: str) -> tuple[str, str]:
     return bucket, prefix.strip("/")
 
 
-def publish(folder: Path, dest: str, bundle_name: str, s3_client: Any = None) -> dict[str, Any]:
+def publish(folder: Path, dest: str, bundle_name: str, s3_client: Any = None,
+            outputs: list[str] | None = None) -> dict[str, Any]:
+    """Publish *folder*. *outputs*: the intake's deliverables, for a folder with fewer than the FR-7 files."""
     folder = Path(folder)
-    _gate(folder)
+    _gate(folder, outputs)
     manifest = build_manifest(folder, bundle_name)
     body = json.dumps(manifest, indent=2) + "\n"
     if dest.startswith("s3://"):

@@ -21,6 +21,19 @@ def _load(path: str):
         raise SystemExit(3) from exc
 
 
+def _outputs(a) -> list[str] | None:
+    """deliverables.outputs of --intake, if given."""
+    if not getattr(a, "intake", None):
+        return None
+    data = _load(a.intake)
+    deliverables = data.get("deliverables") if isinstance(data, dict) else None
+    outputs = deliverables.get("outputs") if isinstance(deliverables, dict) else None
+    if not isinstance(outputs, list) or not all(isinstance(o, str) for o in outputs):
+        print(f"error: {a.intake} has no deliverables.outputs list", file=sys.stderr)
+        raise SystemExit(3)
+    return outputs
+
+
 def cmd_check_intake(a) -> int:
     pending = intake.find_pending(_load(a.intake))
     if not pending:
@@ -63,13 +76,13 @@ def cmd_generate(a) -> int:
 
 
 def cmd_validate(a) -> int:
-    report = consistency.check_folder(Path(a.folder), required=a.require or None)
+    report = consistency.check_folder(Path(a.folder), required=a.require or None, outputs=_outputs(a))
     sys.stdout.write(report.to_json() if a.format == "json" else report.render_text())
     return 0 if report.ok else 1
 
 
 def cmd_check_progress(a) -> int:
-    problems = progress.check_progress(Path(a.folder))
+    problems = progress.check_progress(Path(a.folder), outputs=_outputs(a))
     if not problems:
         print("Progress log: PASS (6 reports, file lists complete)")
         return 0
@@ -107,7 +120,7 @@ def cmd_build_forms(a) -> int:
 
 def cmd_publish(a) -> int:
     try:
-        m = publish.publish(Path(a.folder), a.dest, a.name)
+        m = publish.publish(Path(a.folder), a.dest, a.name, outputs=_outputs(a))
     except publish.PublishRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 1
@@ -142,11 +155,14 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("validate", help="cross-deliverable consistency check keyed on property ID")
     s.add_argument("folder")
     s.add_argument("--format", choices=["text", "json"], default="text")
-    s.add_argument("--require", nargs="*", help="files that must exist (default: planned files or FR-7 core files)")
+    s.add_argument("--require", nargs="*", help="files that must exist (overrides --intake and the default)")
+    s.add_argument("--intake", help="intake JSON: require exactly the files of its deliverables.outputs "
+                   "(default: FR-7 core files plus the files planned in PROGRESS.md)")
     s.set_defaults(fn=cmd_validate)
 
     s = sub.add_parser("check-progress", help="verify PROGRESS.md against the files on disk")
     s.add_argument("folder")
+    s.add_argument("--intake", help="intake JSON: the plan must contain every file of its deliverables.outputs")
     s.set_defaults(fn=cmd_check_progress)
 
     s = sub.add_parser("render-pdf", help="render quick-start.md to PDF")
@@ -168,6 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("folder")
     s.add_argument("--dest", required=True)
     s.add_argument("--name", required=True, help="bundle name, e.g. demo-smart-plug-v1")
+    s.add_argument("--intake", help="intake JSON, for a folder with a smaller deliverable set than the FR-7 files")
     s.set_defaults(fn=cmd_publish)
 
     s = sub.add_parser("fetch", help="download a bundle and verify checksums")
