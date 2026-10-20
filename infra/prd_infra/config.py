@@ -8,6 +8,10 @@ from pathlib import Path
 
 REMOVAL = ("destroy", "retain")
 
+# CDK feature flags this app relies on. Server access logs are granted through a bucket
+# policy instead of the legacy LogDeliveryWrite ACL, so ACLs can stay disabled.
+FEATURE_FLAGS = {"@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": True}
+
 
 @dataclass(frozen=True)
 class DeployConfig:

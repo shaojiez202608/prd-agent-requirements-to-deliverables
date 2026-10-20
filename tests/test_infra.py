@@ -9,17 +9,16 @@ from cdk_nag import AwsSolutionsChecks  # noqa: E402
 
 from conftest import ROOT  # noqa: E402
 from prd_infra.artifact_stack import ArtifactStack  # noqa: E402
-from prd_infra.config import load_config  # noqa: E402
+from prd_infra.config import FEATURE_FLAGS, load_config  # noqa: E402
 
 
 def _synth(config="sandbox.json"):
     cfg = load_config(ROOT / "infra" / "config" / config)
-    app = cdk.App()
+    app = cdk.App(context=FEATURE_FLAGS)
     stack = ArtifactStack(app, "proto-prd-artifacts-test", cfg=cfg)  # environment-agnostic, no account ID
     for k, v in cfg.tags.items():
         cdk.Tags.of(app).add(k, v)
     cdk.Aspects.of(app).add(AwsSolutionsChecks())
-    app.synth()
     return stack
 
 
@@ -54,3 +53,15 @@ def test_bucket_policies_deny_insecure_transport():
 def test_customer_config_retains_data():
     t = assertions.Template.from_stack(_synth("customer.json"))
     t.has_resource("AWS::S3::Bucket", {"DeletionPolicy": "Retain"})
+
+
+def test_nag_harness_reports_findings():
+    """Sanity check: the same harness reports S1/S10 for a bare bucket, so 'no findings' above is meaningful."""
+    from aws_cdk import aws_s3 as s3
+
+    app = cdk.App(context=FEATURE_FLAGS)
+    stack = cdk.Stack(app, "bare")
+    s3.Bucket(stack, "Bare")
+    cdk.Aspects.of(app).add(AwsSolutionsChecks())
+    msgs = assertions.Annotations.from_stack(stack).find_error("*", assertions.Match.string_like_regexp("AwsSolutions-S1.*"))
+    assert msgs

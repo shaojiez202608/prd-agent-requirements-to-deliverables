@@ -23,7 +23,7 @@ publish = [
 infra = [
   "aws-cdk-lib>=2.170.0",
   "constructs>=10.4",
-  "cdk-nag>=2.30",
+  "cdk-nag>=2.30,<3",
 ]
 
 [build-system]

@@ -6,6 +6,9 @@ PREFIX="${1:-proto-prd-}"
 REGION="${2:-${AWS_REGION:-us-east-1}}"
 LOWER=$(echo "$PREFIX" | tr '[:upper:]' '[:lower:]')
 
+# The CLI paginates some list calls and prints one count per page; sum them.
+sum() { awk '{for(i=1;i<=NF;i++) if ($i ~ /^[0-9]+$/) t+=$i} END {print t+0}'; }
+
 echo "region: $REGION, prefix: $PREFIX"
 echo -n "CloudFormation stacks (not DELETE_COMPLETE): "
 aws cloudformation list-stacks --region "$REGION" \
@@ -23,11 +26,11 @@ echo -n "Log groups with prefix /aws/lambda/$PREFIX: "
 aws logs describe-log-groups --region "$REGION" --log-group-name-prefix "/aws/lambda/$PREFIX" \
   --query "length(logGroups)" --output text
 echo -n "Lambda functions with prefix: "
-aws lambda list-functions --region "$REGION" --query "length(Functions[?starts_with(FunctionName, '$PREFIX')])" --output text
+aws lambda list-functions --region "$REGION" --query "length(Functions[?starts_with(FunctionName, '$PREFIX')])" --output text | sum
 echo -n "IAM roles with prefix: "
-aws iam list-roles --query "length(Roles[?starts_with(RoleName, '$PREFIX')])" --output text
+aws iam list-roles --query "length(Roles[?starts_with(RoleName, '$PREFIX')])" --output text | sum
 echo -n "IAM customer policies with prefix: "
-aws iam list-policies --scope Local --query "length(Policies[?starts_with(PolicyName, '$PREFIX')])" --output text
+aws iam list-policies --scope Local --query "length(Policies[?starts_with(PolicyName, '$PREFIX')])" --output text | sum
 echo -n "ECR repositories with prefix: "
 aws ecr describe-repositories --region "$REGION" --query "length(repositories[?starts_with(repositoryName, '$LOWER')])" --output text 2>/dev/null || echo "n/a"
 echo -n "API Gateway REST APIs with prefix: "

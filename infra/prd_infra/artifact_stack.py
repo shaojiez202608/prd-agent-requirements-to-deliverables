@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_s3 as s3
-from cdk_nag import NagSuppressions
 from constructs import Construct
 
 from .config import DeployConfig
+
+# No cdk-nag suppressions: with cdk-nag 2.38.2 this stack produces no AwsSolutions errors or
+# warnings (checked by tests/test_infra.py), including for the access log bucket.
 
 
 class ArtifactStack(Stack):
@@ -30,11 +32,6 @@ class ArtifactStack(Stack):
             lifecycle_rules=[s3.LifecycleRule(expiration=Duration.days(cfg.access_log_expiration_days))],
             removal_policy=removal,
         )
-        NagSuppressions.add_resource_suppressions(logs, [{
-            "id": "AwsSolutions-S1",
-            "reason": "This bucket is the server access log target. Logging it into itself would loop; "
-                      "a second log bucket would only move the finding.",
-        }])
 
         bucket = s3.Bucket(
             self, "ArtifactBucket",

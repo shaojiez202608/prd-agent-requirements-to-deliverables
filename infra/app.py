@@ -15,9 +15,9 @@ import aws_cdk as cdk
 from cdk_nag import AwsSolutionsChecks
 
 from prd_infra.artifact_stack import ArtifactStack
-from prd_infra.config import load_config
+from prd_infra.config import FEATURE_FLAGS, load_config
 
-app = cdk.App()
+app = cdk.App(context=FEATURE_FLAGS)
 cfg = load_config(app.node.try_get_context("config") or "config/sandbox.json")
 region = cfg.region if not cfg.region.startswith("<") else os.environ.get("CDK_DEFAULT_REGION")
 ArtifactStack(app, cfg.stack_name, cfg=cfg,

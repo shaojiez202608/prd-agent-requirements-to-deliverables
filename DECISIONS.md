@@ -26,3 +26,5 @@ When several options were possible, the more conservative one was chosen. Each e
 | D-20 | Example values such as the active power upper bound (99999 W) and the report interval range are synthetic | Real ratings | Spec: rated power is a placeholder; the PRD carries a note to take it from the hardware datasheet |
 | D-21 | Command timeout and retry policy are not part of the intake and appear as an open item | Pick a timeout | Not in the intake; not guessed |
 | D-22 | The only external links are official documentation pages (AWS, Kiro, cdk-nag, uv) and the prior-art repositories | No links | The fact-check rule requires an official link for each claim. No customer or personal page is linked |
+| D-23 | cdk-nag pinned to 2.x (`>=2.30,<3`) | cdk-nag 3.x | 3.x replaces the suppression API with the CDK Validations mechanism (marked experimental in its README). 2.x is the documented, stable path for the AwsSolutions pack |
+| D-24 | CDK feature flag `@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy` on | Legacy LogDeliveryWrite ACL | Keeps ACLs disabled (bucket owner enforced) on the log bucket |

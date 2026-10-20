@@ -20,11 +20,10 @@
 
 ## cdk-nag (AwsSolutions) suppressions
 
-| Rule | Resource | Reason |
-|---|---|---|
-| AwsSolutions-S1 | AccessLogBucket | It is the server access log destination. Logging it into itself would loop, and adding a second log bucket only moves the finding. |
-
-No other suppressions. `tests/test_infra.py` fails if any unsuppressed AwsSolutions error or warning appears.
+None. With cdk-nag 2.38.2 the stack produces no AwsSolutions errors or warnings, the access log bucket included.
+This was observed in `tests/test_infra.py` and in `cdk synth`. The test fails if any unsuppressed AwsSolutions
+error or warning appears. A second test proves the harness works: a bare bucket in the same harness produces an
+AwsSolutions-S1 error. Any future suppression must be added to this table with a written reason.
 
 ## Graviton
 No compute resources are deployed, so the arm64 preference does not apply.
