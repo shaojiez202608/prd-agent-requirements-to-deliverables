@@ -15,7 +15,7 @@ echo "== gitleaks: canary"
 canary="$(mktemp -d)"
 trap 'rm -rf "$canary"' EXIT
 # Built at run time so that no credential-shaped string is stored in this repository.
-key="AKIA$(python3 -c 'import secrets; print("".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") for _ in range(16)))')"
+key="AKIA$(python3 -c 'import secrets, string; print("".join(secrets.choice(string.ascii_uppercase + "234567") for _ in range(16)))')"
 printf 'aws_access_key_id = %s\n' "$key" > "$canary/config.txt"
 if gitleaks dir "$canary" --config .gitleaks.toml --redact --no-banner >/dev/null 2>&1; then
   echo "FAIL: gitleaks did not report the planted canary credential"; exit 1
