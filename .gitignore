@@ -12,3 +12,11 @@ cdk.context.json
 .env
 *.o
 device-demo/demo
+
+# Real deployment configuration (templates *.example.json are committed)
+infra/config/*.json
+!infra/config/*.example.json
+.env*
+!.env.example
+*.tfstate
+*.tfstate.*

@@ -1,22 +1,100 @@
-"""Safety guard of the cleanup script and the sandbox naming convention."""
+"""Operations script (scripts/ops.py): guards and parsers that run without AWS."""
 
+import importlib.util
 import json
-import subprocess
 import sys
+
+import pytest
+from botocore.stub import Stubber
 
 from conftest import ROOT
 
+spec = importlib.util.spec_from_file_location("ops", ROOT / "scripts" / "ops.py")
+ops = importlib.util.module_from_spec(spec)
+sys.modules["ops"] = ops
+spec.loader.exec_module(ops)
 
-def test_empty_buckets_script_refuses_foreign_stack_names():
-    # Refuses before any AWS call: the name does not start with the default sandbox prefix.
-    proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "empty_stack_buckets.py"), "someone-elses-stack"],
-                          capture_output=True, text=True)
-    assert proc.returncode == 3
-    assert "must start with proto-prd-" in proc.stderr
+
+def test_mask_replaces_account_ids():
+    fake = "9876543210" + "98"  # built at run time: no account-like literal in the repository
+    assert ops.mask(f"arn:aws:iam::{fake}:role/x {fake}3") == f"arn:aws:iam::111122223333:role/x {fake}3"
+
+
+DIFF = """Stack proto-prd-artifacts
+Resources
+[~] AWS::S3::BucketPolicy ArtifactBucketPolicy ArtifactBucketPolicy4B4B7752
+ └─ [~] PolicyDocument
+[-] AWS::S3::Bucket AccessLogBucket AccessLogBucketDA470295 orphan
+[~] AWS::S3::Bucket ArtifactBucket ArtifactBucket7410C9EF replace
+ └─ [~] BucketName (requires replacement)
+[+] AWS::S3::Bucket NewBucket NewBucketABC
+"""
+
+
+def test_diff_guard_finds_deletions_and_replacements():
+    assert ops.destructive_changes(DIFF) == ["delete AWS::S3::Bucket AccessLogBucket",
+                                             "replace AWS::S3::Bucket ArtifactBucket"]
+    assert ops.destructive_changes("[+] AWS::S3::Bucket A A1\n[~] AWS::S3::BucketPolicy P P1\n") == []
+
+
+def test_diff_guard_refuses_without_allow_destructive(tmp_path, monkeypatch):
+    f = tmp_path / "diff.txt"
+    f.write_text(DIFF, encoding="utf-8")
+    monkeypatch.delenv("ALLOW_DESTRUCTIVE", raising=False)
+    assert ops.main(["diff-guard", str(f)]) == 1
+    monkeypatch.setenv("ALLOW_DESTRUCTIVE", "1")
+    assert ops.main(["diff-guard", str(f)]) == 0
+
+
+def test_asset_keys_from_cdk_out(tmp_path):
+    (tmp_path / "s.assets.json").write_text(json.dumps({"files": {"h1": {"destinations": {
+        "d": {"bucketName": "b", "objectKey": "h1.json"}}}}, "dockerImages": {}}), encoding="utf-8")
+    assert ops.asset_keys([str(tmp_path)]) == ["h1.json"]
+
+
+def test_confirm_from_environment(monkeypatch):
+    monkeypatch.setenv("X_CONFIRM", "proto-prd-artifacts")
+    assert ops.confirm("?", "proto-prd-artifacts", "X_CONFIRM")
+    monkeypatch.setenv("X_CONFIRM", "yes")
+    assert not ops.confirm("?", "proto-prd-artifacts", "X_CONFIRM")
+
+
+def test_cleanup_refuses_foreign_stack_before_any_aws_call(tmp_path, capsys):
+    cfg = json.loads((ROOT / "infra" / "config" / "customer.example.json").read_text(encoding="utf-8"))
+    cfg["region"] = "us-east-1"
+    path = tmp_path / "customer.json"
+    path.write_text(json.dumps(cfg), encoding="utf-8")
+    assert ops.main(["cleanup", "--config", str(path), "--cdk-out", str(tmp_path)]) == 3
+    assert "must start with proto-prd-" in capsys.readouterr().out
+
+
+def test_asset_versions_only_match_exact_keys():
+    import boto3
+
+    s3 = boto3.client("s3", region_name="us-east-1", aws_access_key_id="x", aws_secret_access_key="x")
+    with Stubber(s3) as st:
+        st.add_response("list_object_versions", {"Versions": [
+            {"Key": "h1.json", "VersionId": "v1"}, {"Key": "h1.json.extra", "VersionId": "v2"}]},
+            {"Bucket": "boot", "Prefix": "h1.json"})
+        assert ops._asset_versions(s3, "boot", ["h1.json"]) == [{"Key": "h1.json", "VersionId": "v1"}]
+
+
+def test_verify_cleanup_fails_on_residue(monkeypatch):
+    monkeypatch.setattr(ops, "residue", lambda *a: {"stacks": 0, "S3 buckets": 1})
+    assert ops.main(["verify-cleanup", "--regions", "us-east-1"]) == 1
+    monkeypatch.setattr(ops, "residue", lambda *a: {"stacks": 0, "S3 buckets": 0})
+    assert ops.main(["verify-cleanup", "--regions", "us-east-1"]) == 0
+    monkeypatch.setattr(ops, "residue", lambda *a: {"stacks": "error AccessDenied"})
+    assert ops.main(["verify-cleanup", "--regions", "us-east-1"]) == 1
 
 
 def test_sandbox_stack_uses_project_prefix():
-    cfg = json.loads((ROOT / "infra" / "config" / "sandbox.json").read_text(encoding="utf-8"))
+    cfg = json.loads((ROOT / "infra" / "config" / "sandbox.example.json").read_text(encoding="utf-8"))
     assert cfg["stack_name"].startswith("proto-prd-")
-    script = (ROOT / "scripts" / "residue_check.sh").read_text(encoding="utf-8")
-    assert 'PREFIX="${1:-proto-prd-}"' in script
+
+
+@pytest.mark.parametrize("target", ["preflight", "lint", "test", "synth", "deploy", "verify", "destroy",
+                                    "verify-cleanup", "scan", "init"])
+def test_makefile_has_standard_targets(target):
+    text = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert f"\n{target}:" in text

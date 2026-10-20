@@ -1,0 +1,4 @@
+# gitleaks configuration: the default rule set, no exemptions.
+# Any future allowlist entry must name the exact path and rule and give a reason in a comment.
+[extend]
+useDefault = true

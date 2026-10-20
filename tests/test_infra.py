@@ -12,8 +12,8 @@ from prd_infra.artifact_stack import ArtifactStack  # noqa: E402
 from prd_infra.config import FEATURE_FLAGS, load_config  # noqa: E402
 
 
-def _synth(config="sandbox.json"):
-    cfg = load_config(ROOT / "infra" / "config" / config)
+def _synth(config="sandbox.example.json", writers=()):
+    cfg = load_config(ROOT / "infra" / "config" / config, writers)
     app = cdk.App(context=FEATURE_FLAGS)
     stack = ArtifactStack(app, "proto-prd-artifacts-test", cfg=cfg)  # environment-agnostic, no account ID
     for k, v in cfg.tags.items():
@@ -51,7 +51,7 @@ def test_bucket_policies_deny_insecure_transport():
 
 
 def test_customer_config_retains_data():
-    t = assertions.Template.from_stack(_synth("customer.json"))
+    t = assertions.Template.from_stack(_synth("customer.example.json"))
     t.has_resource("AWS::S3::Bucket", {"DeletionPolicy": "Retain"})
 
 
@@ -65,3 +65,28 @@ def test_nag_harness_reports_findings():
     cdk.Aspects.of(app).add(AwsSolutionsChecks())
     msgs = assertions.Annotations.from_stack(stack).find_error("*", assertions.Match.string_like_regexp("AwsSolutions-S1.*"))
     assert msgs
+
+
+def _policy(stack):
+    t = assertions.Template.from_stack(stack)
+    policies = t.find_resources("AWS::S3::BucketPolicy")
+    return [s for p in policies.values() for s in p["Properties"]["PolicyDocument"]["Statement"]]
+
+
+def test_artifact_bucket_denies_principals_outside_the_account():
+    stmts = {s.get("Sid"): s for s in _policy(_synth())}
+    deny = stmts["DenyPrincipalsOutsideAccount"]
+    assert deny["Effect"] == "Deny" and deny["Principal"] == {"AWS": "*"} and deny["Action"] == "s3:*"
+    assert deny["Condition"] == {"StringNotEquals": {"aws:PrincipalAccount": {"Ref": "AWS::AccountId"}}}
+    assert "DenyWritesExceptPublishers" not in stmts
+
+
+def test_writer_restriction_follows_the_context():
+    arn = "arn:aws:iam::111122223333:role/proto-prd-publisher"
+    stmts = {s.get("Sid"): s for s in _policy(_synth(writers=(arn,)))}
+    deny = stmts["DenyWritesExceptPublishers"]
+    assert deny["Effect"] == "Deny" and deny["Action"] == "s3:PutObject"
+    assert deny["Condition"] == {"ArnNotLike": {"aws:PrincipalArn": [arn]}}
+    errors = assertions.Annotations.from_stack(_synth(writers=(arn,))).find_error(
+        "*", assertions.Match.string_like_regexp("AwsSolutions-.*"))
+    assert errors == []

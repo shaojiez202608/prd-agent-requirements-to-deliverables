@@ -35,3 +35,19 @@ def test_no_internal_names_or_local_paths_in_tracked_files():
             if pattern.search(line):
                 hits.append(f"{rel}:{no}")
     assert hits == []
+
+
+def test_no_account_ids_in_tracked_files():
+    """12-digit numbers are only allowed as the documentation placeholder 111122223333."""
+    allowed = {"111122223333"}
+    files = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+    hits = []
+    for rel in files:
+        path = ROOT / rel
+        if path.suffix == ".pdf" or rel == "uv.lock" or not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r"(?<![0-9])[0-9]{12}(?![0-9])", text):
+            if m.group(0) not in allowed:
+                hits.append(f"{rel}: {m.group(0)[:2]}...")
+    assert hits == []

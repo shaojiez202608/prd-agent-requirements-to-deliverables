@@ -7,7 +7,8 @@ docs/deployment-guide.md for a least-privilege policy example.
 
 from __future__ import annotations
 
-from aws_cdk import CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import Aws, CfnOutput, Duration, RemovalPolicy, Stack
+from aws_cdk import aws_iam as iam
 from aws_cdk import aws_s3 as s3
 from constructs import Construct
 
@@ -49,6 +50,27 @@ class ArtifactStack(Stack):
             )],
             removal_policy=removal,
         )
+
+        # Resource policy, in addition to IAM: only principals of this account may use the bucket at all
+        # (anonymous and cross-account requests are denied explicitly), and if writer principals are
+        # configured, only they may write objects. Both statements are Deny, so they cannot grant access.
+        bucket.add_to_resource_policy(iam.PolicyStatement(
+            sid="DenyPrincipalsOutsideAccount",
+            effect=iam.Effect.DENY,
+            principals=[iam.AnyPrincipal()],
+            actions=["s3:*"],
+            resources=[bucket.bucket_arn, bucket.arn_for_objects("*")],
+            conditions={"StringNotEquals": {"aws:PrincipalAccount": Aws.ACCOUNT_ID}},
+        ))
+        if cfg.writer_principal_arns:
+            bucket.add_to_resource_policy(iam.PolicyStatement(
+                sid="DenyWritesExceptPublishers",
+                effect=iam.Effect.DENY,
+                principals=[iam.AnyPrincipal()],
+                actions=["s3:PutObject"],
+                resources=[bucket.arn_for_objects("*")],
+                conditions={"ArnNotLike": {"aws:PrincipalArn": list(cfg.writer_principal_arns)}},
+            ))
 
         CfnOutput(self, "ArtifactBucketName", value=bucket.bucket_name)
         CfnOutput(self, "AccessLogBucketName", value=logs.bucket_name)

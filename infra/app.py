@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""CDK entry point. Usage (from infra/):
-
-    npx -y aws-cdk@2 deploy -c config=config/sandbox.json
+"""CDK entry point. Use the Makefile targets in the repository root (see README.md, Deploy).
 
 The account comes from the caller's credentials (CDK_DEFAULT_ACCOUNT); it is
-never written into the repository.
+never written into the repository. Optional context:
+``-c writer_principal_arns=<ARN>[,<ARN>...]`` restricts object writes to those principals.
 """
 
 from __future__ import annotations
@@ -15,10 +14,14 @@ import aws_cdk as cdk
 from cdk_nag import AwsSolutionsChecks
 
 from prd_infra.artifact_stack import ArtifactStack
-from prd_infra.config import FEATURE_FLAGS, load_config
+from prd_infra.config import FEATURE_FLAGS, ConfigError, load_config, parse_principals
 
 app = cdk.App(context=FEATURE_FLAGS)
-cfg = load_config(app.node.try_get_context("config") or "config/sandbox.json")
+try:
+    cfg = load_config(app.node.try_get_context("config") or "config/sandbox.json",
+                      parse_principals(app.node.try_get_context("writer_principal_arns")))
+except ConfigError as exc:
+    raise SystemExit(f"error: {exc}") from None
 region = cfg.region if not cfg.region.startswith("<") else os.environ.get("CDK_DEFAULT_REGION")
 ArtifactStack(app, cfg.stack_name, cfg=cfg,
               env=cdk.Environment(account=os.environ.get("CDK_DEFAULT_ACCOUNT"), region=region),
