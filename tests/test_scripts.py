@@ -98,3 +98,35 @@ def test_sandbox_stack_uses_project_prefix():
 def test_makefile_has_standard_targets(target):
     text = (ROOT / "Makefile").read_text(encoding="utf-8")
     assert f"\n{target}:" in text
+
+
+def test_cleanup_reads_asset_keys_before_cdk_destroy(tmp_path, monkeypatch):
+    """cdk destroy re-synthesizes; the asset keys must come from the folders as passed in."""
+    cfg = tmp_path / "sandbox.json"
+    cfg.write_text((ROOT / "infra" / "config" / "sandbox.example.json").read_text(encoding="utf-8"), encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(ops, "asset_keys", lambda dirs: calls.append(("keys", list(dirs))) or ["k.json"])
+
+    class Proc:
+        returncode, stdout, stderr = 0, "destroyed", ""
+
+    def run(cmd, **kw):
+        calls.append(("destroy", cmd[cmd.index("-o") + 1]))
+        return Proc()
+
+    class Cfn:
+        def describe_stack_resources(self, StackName):
+            return {"StackResources": []}
+
+    monkeypatch.setattr(ops.subprocess, "run", run)
+    monkeypatch.setattr(ops, "_boto", lambda service, region: Cfn())
+    monkeypatch.setattr(ops, "_bootstrap_bucket", lambda region: None)
+    monkeypatch.setattr(ops, "ROOT", tmp_path.parent)
+    monkeypatch.setenv("CLEANUP_CONFIRM_STACK", "proto-prd-artifacts")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    (tmp_path.parent / "infra").mkdir(exist_ok=True)
+    real_cfg = tmp_path.parent / "infra" / "sandbox.json"
+    real_cfg.write_text(cfg.read_text(encoding="utf-8"), encoding="utf-8")
+    ops.main(["cleanup", "--config", str(real_cfg), "--cdk-out", str(tmp_path)])
+    assert calls[0] == ("keys", [str(tmp_path)])
+    assert calls[1][0] == "destroy" and calls[1][1] != str(tmp_path)

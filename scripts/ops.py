@@ -370,6 +370,8 @@ def cmd_cleanup(a) -> int:
         return 3
     cfn, s3 = _boto("cloudformation", region), _boto("s3", region)
     warnings: list[str] = []
+    # Read the asset keys first: `cdk destroy` synthesizes again and must not overwrite the folders passed in.
+    keys = asset_keys(a.cdk_out)
     say(f"Cleanup of stack {stack} in {region}")
     if not confirm(f"This deletes stack {stack} and its resources.", stack, "CLEANUP_CONFIRM_STACK"):
         say("Stopped: not confirmed.")
@@ -402,15 +404,16 @@ def cmd_cleanup(a) -> int:
         else:
             warnings.append("data deletion not confirmed; cdk destroy will fail on non-empty buckets")
 
+    scratch = tempfile.mkdtemp(prefix="prd-destroy-cdk.out-")
     cmd = a.cdk.split() + ["destroy", "--force", "-c", f"config={Path(a.config).resolve().relative_to(ROOT / 'infra')}",
-                           "-o", a.cdk_out[0]]
+                           "-o", scratch]
     say("running:", " ".join(cmd))
     proc = subprocess.run(cmd, cwd=ROOT / "infra", capture_output=True, text=True, check=False)  # noqa: S603 - CDK CLI from --cdk
     say((proc.stdout + proc.stderr).strip().splitlines()[-1] if (proc.stdout + proc.stderr).strip() else "")
     if proc.returncode != 0:
         warnings.append(f"cdk destroy exited {proc.returncode}; empty the buckets again and re-run (late logs)")
 
-    keys = asset_keys(a.cdk_out)
+    shutil.rmtree(scratch, ignore_errors=True)
     boot = _bootstrap_bucket(region)
     if boot and keys:
         try:
