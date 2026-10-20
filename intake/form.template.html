@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>{{TITLE}}</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1rem auto; max-width: 64rem; padding: 0 1rem; color: #222; }
+  fieldset { border: 1px solid #bbb; border-radius: 6px; margin: 1rem 0; padding: .5rem 1rem 1rem; }
+  legend { font-weight: 600; }
+  .f { margin: .5rem 0; }
+  .f label.t { display: block; font-size: 14px; margin-bottom: 2px; }
+  .req { color: #b00; }
+  .ex { color: #777; font-size: 12px; }
+  input[type=text], textarea, select { width: 100%; box-sizing: border-box; padding: 4px; }
+  .opts label { margin-right: 1rem; font-size: 14px; white-space: nowrap; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #ccc; padding: 2px; vertical-align: top; }
+  td input, td select { font-size: 12px; }
+  #out { width: 100%; height: 22rem; font-family: monospace; font-size: 12px; }
+  .bar button { margin-right: .5rem; }
+  .note { background: #f6f6f6; padding: .5rem; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>{{TITLE}}</h1>
+<p class="note">离线页面：不联网、不调用任何 AI 服务。填写后点「生成提示词」，把输出文本人工复制到 AI 工具。
+Offline page: no network access and no AI calls. Fill in, press "Generate", then copy the text into your AI tool by hand.
+同样的输入总是得到同样的输出 / Same input always gives the same text.</p>
+<form id="intake" onsubmit="return false"></form>
+<div class="bar">
+  <button type="button" id="gen">生成提示词 / Generate prompt</button>
+  <button type="button" id="copy">复制 / Copy</button>
+  <button type="button" id="export">导出 JSON / Export intake JSON</button>
+  <label>导入 JSON / Import <input type="file" id="import" accept="application/json"></label>
+</div>
+<p id="status"></p>
+<textarea id="out" readonly></textarea>
+<script id="schema" type="application/json">{{SCHEMA_JSON}}</script>
+<script>
+{{COMPILER_JS}}
+</script>
+<script>
+var VARIANT = "{{VARIANT}}";
+{{FORM_UI_JS}}
+</script>
+</body>
+</html>

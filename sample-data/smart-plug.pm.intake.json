@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "variant": "pm",
+  "business": {
+    "scene_category": "smart_home",
+    "scene_description": "Households want to switch plugged-in appliances remotely, see the current power draw and be warned about overload.",
+    "pain_points": ["remote_monitoring_hard", "faults_not_alerted", "coarse_energy_management"],
+    "end_users": ["consumers", "after_sales_staff"]
+  },
+  "hardware": {
+    "product_category": "smart_plug",
+    "product_name": "Demo Smart Plug",
+    "connectivity": "wifi",
+    "power_supply": "mains",
+    "architecture_mode": "single_chip_module",
+    "module_selection": "to_be_decided",
+    "firmware_custom": "custom",
+    "channels": 1
+  },
+  "thing_model": {
+    "properties": [
+      {"name": "Power switch", "id": 1, "identifier": "power_switch", "data_type": "bool", "access": "RW",
+       "control": "toggle", "interaction": "Tap to toggle; command/report loop"},
+      {"name": "Active power", "id": 2, "identifier": "active_power", "data_type": "float", "access": "R",
+       "unit": "W", "min": 0, "max": 99999, "step": 0.1,
+       "control": "value_display", "interaction": "Read-only number with a small trend chart"},
+      {"name": "Overload alarm", "id": 3, "identifier": "overload_alarm", "data_type": "bool", "access": "R",
+       "control": "alarm_indicator", "interaction": "Read-only; shown in red while the alarm is active"},
+      {"name": "Overload protection", "id": 4, "identifier": "overload_protect", "data_type": "bool", "access": "RW",
+       "control": "toggle", "interaction": "Slide switch; command/report loop"},
+      {"name": "Timer tasks", "id": 5, "identifier": "timer_task", "data_type": "string", "access": "RW",
+       "max_length": 1024,
+       "control": "list_editor", "interaction": "List with add/edit/delete; wait for device report after each command"},
+      {"name": "Report interval", "id": 6, "identifier": "report_interval", "data_type": "int", "access": "RW",
+       "unit": "min", "min": 1, "max": 60, "step": 1,
+       "control": "slider", "interaction": "Slider in minutes; command/report loop"}
+    ]
+  },
+  "app": {
+    "app_types": ["mobile_app"],
+    "provisioning": ["softap_hotspot", "ble_assisted"],
+    "login": ["email", "phone_otp"],
+    "panel_style": "minimal",
+    "data_presentation": ["generic_properties", "statistics_charts"]
+  },
+  "constraints": {
+    "offline_behavior": "Panel greys out writable controls and shows the last reported values with their timestamp.",
+    "acceptance_criteria": [
+      "A switch command changes the panel state only after the device reports the new state.",
+      "The overload alarm is shown in red within one report cycle after the device raises it.",
+      "Timer tasks created in the panel are listed again after an app restart.",
+      "Changing the report interval changes how often active_power is reported."
+    ],
+    "security_privacy_notes": "No personal data is stored on the device. Credentials are never written to logs.",
+    "open_notes": "Rated power is a placeholder in this synthetic example; take it from the hardware datasheet."
+  },
+  "deliverables": {
+    "outputs": ["thing_model", "architecture", "quick_start", "prd", "panel_spec", "device_demo"]
+  }
+}
