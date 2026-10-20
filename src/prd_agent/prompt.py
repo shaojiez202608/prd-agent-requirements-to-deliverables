@@ -7,6 +7,7 @@ the same prompt. Mirrored in ``intake/compiler.js``; see tests/test_js_parity.py
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .intake import (
@@ -34,9 +35,12 @@ DELIVERABLE_FILES: dict[str, list[str]] = {
 }
 
 
+_MARKER = re.compile(r"(intake)-", re.IGNORECASE | re.ASCII)
+
+
 def _neutralise(text: str) -> str:
-    # Person-supplied text must not be able to close the data block.
-    return text.replace("INTAKE-", "INTAKE_")
+    # Person-supplied text must not be able to open or close the data block, in any letter case.
+    return _MARKER.sub(r"\1_", text)
 
 
 def _text(value: Any) -> str:
@@ -89,8 +93,10 @@ def compile_prompt(intake: Any, schema: dict[str, Any] | None = None) -> str:
 
     add("# PRD agent task")
     add("")
-    add(f"schema_version: {_text(data.get('schema_version'))}")
-    add(f"form: {_text(data.get('variant'))}")
+    # Only known values are echoed above the data block; anything else could carry instructions.
+    version, variant = data.get("schema_version"), data.get("variant")
+    add(f"schema_version: {version if version == schema['schema_version'] else '(invalid)'}")
+    add(f"form: {variant if isinstance(variant, str) and variant in schema['variants'] else '(invalid)'}")
     add(f"mode: {mode}")
     add("")
     add("## Instructions for the agent")

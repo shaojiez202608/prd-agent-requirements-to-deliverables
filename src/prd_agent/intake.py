@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,9 @@ SCHEMA_PATH = REPO_ROOT / "intake" / "schema.json"
 
 _WS = re.compile(r"[ \t\r\n]+")
 _NUM = re.compile(r"^-?[0-9]+(\.[0-9]+)?$")
+# Largest integer that JavaScript (the offline forms) represents exactly. Larger integers are rejected so that
+# both compilers see the same value.
+MAX_SAFE_INTEGER = 2**53 - 1
 
 
 @dataclass(frozen=True)
@@ -58,22 +62,31 @@ def parse_number(value: Any) -> int | float | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
-            return None
-        return int(value) if value.is_integer() else value
+        return value if abs(value) <= MAX_SAFE_INTEGER else None
     if isinstance(value, str):
         s = value.strip(" \t\r\n")
         if not _NUM.match(s):
             return None
-        f = float(s)
-        return int(f) if f.is_integer() else f
+        value = float(s)
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            return None
+        if value.is_integer():
+            return int(value) if abs(value) <= MAX_SAFE_INTEGER else None
+        return value
     return None
 
 
 def format_number(value: int | float) -> str:
-    return str(value)
+    """Plain decimal text without exponent, identical to formatNumber in intake/compiler.js.
+
+    Both languages print the shortest digits that round-trip the double; only the exponent notation
+    differs (Python ``1e-05``, JavaScript ``1e-7``), so it is expanded here.
+    """
+    if isinstance(value, int):
+        return str(value)
+    text = repr(value)
+    return format(Decimal(text), "f") if "e" in text else text
 
 
 def is_empty(value: Any) -> bool:

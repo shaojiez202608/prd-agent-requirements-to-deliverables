@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .intake import REPO_ROOT, PendingItem, clean_lines, clean_text, find_pending, load_schema
+from .intake import REPO_ROOT, PendingItem, clean_lines, clean_text, find_pending, format_number, load_schema
 from .pdf import render_markdown_pdf
 from .progress import MILESTONES, render_progress
 from .prompt import DELIVERABLE_FILES
@@ -89,7 +89,8 @@ def _type_text(p: dict[str, Any]) -> str:
     dt = p["data_type"]
     t = dt["type"]
     if t in ("int", "float"):
-        return f"{t}, range {dt['min']} to {dt['max']}, step {dt['step']}, unit {dt['unit']}"
+        return (f"{t}, range {format_number(dt['min'])} to {format_number(dt['max'])}, "
+                f"step {format_number(dt['step'])}, unit {dt['unit']}")
     if t == "enum":
         return "enum: " + ", ".join(dt["values"])
     if t == "string":
@@ -106,7 +107,7 @@ def _example_value(p: dict[str, Any]) -> str:
     if t == "bool":
         return "true"
     if t in ("int", "float"):
-        return str(p["data_type"]["min"])
+        return format_number(p["data_type"]["min"])
     if t == "enum":
         return '"' + p["data_type"]["values"][0] + '"'
     return '"..."'
@@ -125,7 +126,7 @@ def _c_value(p: dict[str, Any]) -> str:
     if t == "bool":
         return ".kind = DP_VAL_BOOL, .b = false"
     if t in ("int", "float"):
-        return f".kind = DP_VAL_NUM, .num = {p['data_type']['min']}"
+        return f".kind = DP_VAL_NUM, .num = {format_number(p['data_type']['min'])}"
     return '.kind = DP_VAL_STR, .str = ""'
 
 

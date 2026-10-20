@@ -53,6 +53,8 @@ Offline page: no network access and no AI calls. Fill in, press "Generate", then
   var NOT_PROVIDED = "(not provided)";
   var WS = /[ \t\r\n]+/g;
   var NUM = /^-?[0-9]+(\.[0-9]+)?$/;
+  // Largest integer JavaScript represents exactly; larger ones are rejected in both compilers.
+  var MAX_SAFE_INTEGER = 9007199254740991;
 
   var DELIVERABLE_FILES = [
     ["thing_model", ["thing-model.json"]],
@@ -83,20 +85,30 @@ Offline page: no network access and no AI calls. Fill in, press "Generate", then
   // Returns {v: number, int: bool} or null.
   function parseNumber(v) {
     if (typeof v === "boolean" || v === null || v === undefined) return null;
-    if (typeof v === "number") {
-      if (!isFinite(v)) return null;
-      return { v: v, int: Number.isInteger(v) };
-    }
     if (typeof v === "string") {
       var s = v.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
       if (!NUM.test(s)) return null;
-      var f = parseFloat(s);
-      return { v: f, int: Number.isInteger(f) };
+      v = parseFloat(s);
+    }
+    if (typeof v === "number") {
+      if (!isFinite(v)) return null;
+      if (Number.isInteger(v)) return Math.abs(v) <= MAX_SAFE_INTEGER ? { v: v, int: true } : null;
+      return { v: v, int: false };
     }
     return null;
   }
 
-  function formatNumber(n) { return String(n.v); }
+  // Plain decimal text without exponent, identical to format_number in src/prd_agent/intake.py.
+  function formatNumber(n) {
+    var s = String(n.v);
+    var m = /^(-?)([0-9])(?:\.([0-9]+))?e([+-][0-9]+)$/.exec(s);
+    if (!m) return s;
+    var digits = m[2] + (m[3] || ""), exp = parseInt(m[4], 10);
+    if (exp < 0) return m[1] + "0." + new Array(-exp).join("0") + digits;
+    while (digits.length <= exp) digits += "0";
+    var head = digits.slice(0, exp + 1), tail = digits.slice(exp + 1);
+    return m[1] + head + (tail ? "." + tail : "");
+  }
 
   function isEmpty(v) {
     if (v === null || v === undefined) return true;
@@ -295,7 +307,8 @@ Offline page: no network access and no AI calls. Fill in, press "Generate", then
     return out;
   }
 
-  function neutralise(t) { return t.split("INTAKE-").join("INTAKE_"); }
+  // Person-supplied text must not be able to open or close the data block, in any letter case.
+  function neutralise(t) { return t.replace(/(intake)-/gi, "$1_"); }
 
   function text(v) {
     if (typeof v === "string") return neutralise(cleanText(v));
@@ -344,8 +357,10 @@ Offline page: no network access and no AI calls. Fill in, press "Generate", then
 
     add("# PRD agent task");
     add("");
-    add("schema_version: " + text(data.schema_version));
-    add("form: " + text(data.variant));
+    // Only known values are echoed above the data block; anything else could carry instructions.
+    add("schema_version: " + (data.schema_version === schema.schema_version ? data.schema_version : "(invalid)"));
+    add("form: " + (typeof data.variant === "string" && Object.prototype.hasOwnProperty.call(schema.variants, data.variant)
+      ? data.variant : "(invalid)"));
     add("mode: " + mode);
     add("");
     add("## Instructions for the agent");

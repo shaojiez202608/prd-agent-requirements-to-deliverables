@@ -84,8 +84,9 @@ Components:
   verification.
 - The device demo is a structure skeleton. It compiles as C99 but is not firmware.
 - `string` is the only type for structured values (for example timer lists). Their encoding is left as an open item.
-- The JS and Python compilers are only guaranteed to match for decimal numbers without exponent notation.
-  The form produces such numbers.
+- Numbers are printed as plain decimals without exponent in both compilers (for example `0.00001`). Integers
+  beyond ±(2^53 − 1) are rejected as invalid, because JavaScript cannot represent them exactly. Within that range
+  the JS and Python output is identical; the parity test covers small decimals, `-0` and the range limits.
 
 ## Fact check
 
