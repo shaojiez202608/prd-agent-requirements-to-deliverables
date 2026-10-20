@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      aws-cdk:
+        patterns: ["aws-cdk-lib", "constructs", "cdk-nag"]
+      python-runtime-and-dev:
+        patterns: ["*"]
+        exclude-patterns: ["aws-cdk-lib", "constructs", "cdk-nag"]
+    ignore:
+      # cdk-nag 3.x replaces the suppression API with CDK Validations (experimental); stay on 2.x (DECISIONS D-23).
+      - dependency-name: cdk-nag
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
