@@ -1,0 +1,25 @@
+%% {{product_name}} product architecture. Annotation rules: knowledge-base/03-architecture-diagram-conventions
+flowchart LR
+  subgraph DEV["Device: {{product_category}} ({{architecture_mode}})"]
+    FW["Firmware ({{firmware_custom}})"]
+    HAL["HAL port: hal_dp_report / hal_dp_poll_command"]
+    FW --> HAL
+  end
+  subgraph TM["Thing model (thing-model.json)"]
+{{dp_nodes}}
+  end
+  subgraph CLOUD["IoT cloud platform (generic)"]
+    BROKER["Device connection and messaging"]
+    SHADOW["Device state store"]
+    RULES["Rules and alarms"]
+    BROKER --> SHADOW
+    BROKER --> RULES
+  end
+  subgraph APPS["Client applications"]
+{{app_nodes}}
+  end
+  HAL -->|"{{connectivity}}: report / command"| BROKER
+  SHADOW -->|state| APPS
+  APPS -->|command| BROKER
+  TM -.->|defines payloads| HAL
+  TM -.->|binds controls| APPS

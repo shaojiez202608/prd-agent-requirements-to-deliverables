@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{product_name}} panel preview (structure only)</title>
+<style>
+  body { font-family: sans-serif; margin: 1.5rem; max-width: 28rem; }
+  .card { border: 1px solid #888; border-radius: 6px; padding: .75rem; margin: .5rem 0; }
+  .dp { font: 12px monospace; background: #eee; padding: 0 .3rem; border-radius: 3px; }
+  .ctl { color: #555; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>{{product_name}}</h1>
+<p>Structure preview. Each card is one control; the badge shows the bound thing model ID, identifier and access.
+Visual styling is intentionally minimal.</p>
+{{cards}}
+</body>
+</html>
