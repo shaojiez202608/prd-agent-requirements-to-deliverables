@@ -294,9 +294,13 @@ def _boto_http(region: str):
 
 
 def _anonymous(url: str, method: str) -> int:
+    """Unsigned request to the stack's own bucket; only https:// URLs are accepted."""
+    if not url.startswith("https://"):
+        raise ValueError(f"refusing non-https URL: {url}")
     req = urllib.request.Request(url, method=method, data=b"x" if method == "PUT" else None)  # noqa: S310
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310 - fixed https URL
+        # nosec B310 -- scheme checked above; the URL is built from the stack output bucket name
+        with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310  # nosec B310
             return resp.status
     except urllib.error.HTTPError as exc:
         return exc.code

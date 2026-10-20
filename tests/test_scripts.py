@@ -130,3 +130,8 @@ def test_cleanup_reads_asset_keys_before_cdk_destroy(tmp_path, monkeypatch):
     ops.main(["cleanup", "--config", str(real_cfg), "--cdk-out", str(tmp_path)])
     assert calls[0] == ("keys", [str(tmp_path)])
     assert calls[1][0] == "destroy" and calls[1][1] != str(tmp_path)
+
+
+def test_anonymous_probe_refuses_non_https():
+    with pytest.raises(ValueError, match="non-https"):
+        ops._anonymous("file:///etc/hosts", "GET")
