@@ -1,0 +1,30 @@
+%% Demo Smart Plug product architecture. Annotation rules: knowledge-base/03-architecture-diagram-conventions
+flowchart LR
+  subgraph DEV["Device: Smart plug (Single-chip (application runs on the connectivity module))"]
+    FW["Firmware (Custom firmware)"]
+    HAL["HAL port: hal_dp_report / hal_dp_poll_command"]
+    FW --> HAL
+  end
+  subgraph TM["Thing model (thing-model.json)"]
+    dp1["DP 1 power_switch RW"]
+    dp2["DP 2 active_power R"]
+    dp3["DP 3 overload_alarm R"]
+    dp4["DP 4 overload_protect RW"]
+    dp5["DP 5 timer_task RW"]
+    dp6["DP 6 report_interval RW"]
+  end
+  subgraph CLOUD["IoT cloud platform (generic)"]
+    BROKER["Device connection and messaging"]
+    SHADOW["Device state store"]
+    RULES["Rules and alarms"]
+    BROKER --> SHADOW
+    BROKER --> RULES
+  end
+  subgraph APPS["Client applications"]
+    app_mobile_app["Mobile app"]
+  end
+  HAL -->|"Wi-Fi: report / command"| BROKER
+  SHADOW -->|state| APPS
+  APPS -->|command| BROKER
+  TM -.->|defines payloads| HAL
+  TM -.->|binds controls| APPS

@@ -1,0 +1,97 @@
+{
+  "format": "prd-agent/thing-model@1",
+  "product": {
+    "name": "Demo Smart Plug",
+    "category": "smart_plug",
+    "connectivity": "wifi"
+  },
+  "properties": [
+    {
+      "id": 1,
+      "identifier": "power_switch",
+      "name": "Power switch",
+      "access": "RW",
+      "data_type": {
+        "type": "bool"
+      },
+      "panel": {
+        "control": "toggle",
+        "interaction": "Tap to toggle; command/report loop"
+      }
+    },
+    {
+      "id": 2,
+      "identifier": "active_power",
+      "name": "Active power",
+      "access": "R",
+      "data_type": {
+        "type": "float",
+        "min": 0,
+        "max": 99999,
+        "step": 0.1,
+        "unit": "W"
+      },
+      "panel": {
+        "control": "value_display",
+        "interaction": "Read-only number with a small trend chart"
+      }
+    },
+    {
+      "id": 3,
+      "identifier": "overload_alarm",
+      "name": "Overload alarm",
+      "access": "R",
+      "data_type": {
+        "type": "bool"
+      },
+      "panel": {
+        "control": "alarm_indicator",
+        "interaction": "Read-only; shown in red while the alarm is active"
+      }
+    },
+    {
+      "id": 4,
+      "identifier": "overload_protect",
+      "name": "Overload protection",
+      "access": "RW",
+      "data_type": {
+        "type": "bool"
+      },
+      "panel": {
+        "control": "toggle",
+        "interaction": "Slide switch; command/report loop"
+      }
+    },
+    {
+      "id": 5,
+      "identifier": "timer_task",
+      "name": "Timer tasks",
+      "access": "RW",
+      "data_type": {
+        "type": "string",
+        "max_length": 1024
+      },
+      "panel": {
+        "control": "list_editor",
+        "interaction": "List with add/edit/delete; wait for device report after each command"
+      }
+    },
+    {
+      "id": 6,
+      "identifier": "report_interval",
+      "name": "Report interval",
+      "access": "RW",
+      "data_type": {
+        "type": "int",
+        "min": 1,
+        "max": 60,
+        "step": 1,
+        "unit": "min"
+      },
+      "panel": {
+        "control": "slider",
+        "interaction": "Slider in minutes; command/report loop"
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Demo Smart Plug panel preview (structure only)</title>
+<style>
+  body { font-family: sans-serif; margin: 1.5rem; max-width: 28rem; }
+  .card { border: 1px solid #888; border-radius: 6px; padding: .75rem; margin: .5rem 0; }
+  .dp { font: 12px monospace; background: #eee; padding: 0 .3rem; border-radius: 3px; }
+  .ctl { color: #555; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Demo Smart Plug</h1>
+<p>Structure preview. Each card is one control; the badge shows the bound thing model ID, identifier and access.
+Visual styling is intentionally minimal.</p>
+<div class="card" data-dp-id="1" data-dp-identifier="power_switch" data-dp-access="RW">
+  <strong>Power switch</strong> <span class="dp">ID 1 | power_switch | RW</span>
+  <div class="ctl">Toggle: Tap to toggle; command/report loop</div>
+</div>
+<div class="card" data-dp-id="2" data-dp-identifier="active_power" data-dp-access="R">
+  <strong>Active power</strong> <span class="dp">ID 2 | active_power | R</span>
+  <div class="ctl">Value display: Read-only number with a small trend chart</div>
+</div>
+<div class="card" data-dp-id="3" data-dp-identifier="overload_alarm" data-dp-access="R">
+  <strong>Overload alarm</strong> <span class="dp">ID 3 | overload_alarm | R</span>
+  <div class="ctl">Alarm indicator: Read-only; shown in red while the alarm is active</div>
+</div>
+<div class="card" data-dp-id="4" data-dp-identifier="overload_protect" data-dp-access="RW">
+  <strong>Overload protection</strong> <span class="dp">ID 4 | overload_protect | RW</span>
+  <div class="ctl">Toggle: Slide switch; command/report loop</div>
+</div>
+<div class="card" data-dp-id="5" data-dp-identifier="timer_task" data-dp-access="RW">
+  <strong>Timer tasks</strong> <span class="dp">ID 5 | timer_task | RW</span>
+  <div class="ctl">List editor: List with add/edit/delete; wait for device report after each command</div>
+</div>
+<div class="card" data-dp-id="6" data-dp-identifier="report_interval" data-dp-access="RW">
+  <strong>Report interval</strong> <span class="dp">ID 6 | report_interval | RW</span>
+  <div class="ctl">Slider: Slider in minutes; command/report loop</div>
+</div>
+</body>
+</html>
