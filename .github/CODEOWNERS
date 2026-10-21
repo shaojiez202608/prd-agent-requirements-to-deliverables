@@ -1,10 +1,10 @@
 # Sensitive files need review by the maintainer. Replace the placeholder handle before publishing
 # (see OPEN-QUESTIONS.md).
-/.github/                         @<MAINTAINER_GITHUB_HANDLE>
-/.gitleaks.toml                   @<MAINTAINER_GITHUB_HANDLE>
-/Makefile                         @<MAINTAINER_GITHUB_HANDLE>
-/scripts/                         @<MAINTAINER_GITHUB_HANDLE>
-/infra/                           @<MAINTAINER_GITHUB_HANDLE>
-/AGENTS.md                        @<MAINTAINER_GITHUB_HANDLE>
-/CLAUDE.md                        @<MAINTAINER_GITHUB_HANDLE>
-/knowledge-base/00-project-rules/ @<MAINTAINER_GITHUB_HANDLE>
+/.github/                         @shaojiez202608
+/.gitleaks.toml                   @shaojiez202608
+/Makefile                         @shaojiez202608
+/scripts/                         @shaojiez202608
+/infra/                           @shaojiez202608
+/AGENTS.md                        @shaojiez202608
+/CLAUDE.md                        @shaojiez202608
+/knowledge-base/00-project-rules/ @shaojiez202608

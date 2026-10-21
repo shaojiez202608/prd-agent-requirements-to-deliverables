@@ -31,6 +31,6 @@
   artifact bucket (the log bucket must stay on SSE-S3), Object Lock for released bundles, and CloudTrail data events.
 - Set retention for noncurrent versions and access logs according to policy, and use `retain` outside sandboxes.
 - Decide on a struct or array type for structured properties instead of encoded strings.
-- Replace `@<MAINTAINER_GITHUB_HANDLE>` in `.github/CODEOWNERS` and the role ARN placeholder in
+- Replace the role ARN placeholder in
   `.github/workflows/deploy-verify.yml`, and create the `sandbox-aws` environment with required reviewers.
 - Treat AI-produced deliverables as drafts. The checker proves ID consistency, not correctness.
