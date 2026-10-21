@@ -68,7 +68,7 @@ missing scanners are left to a CI run on GitHub; they were not run anywhere in t
 outside ASH (`make synth`, tests). Two actionable ASH findings from the first run were fixed in code: bandit B310
 (`scripts/ops.py`, https-only check) and semgrep `uv-missing-dependency-cooldown` (`pyproject.toml`).
 
-CI: **not run on GitHub; only the equivalent targets were run locally** (`make lint test synth scan`).
+CI: run on GitHub after the repository was pushed (private); see "GitHub CI" below.
 
 ## Not run, and why
 
@@ -84,3 +84,15 @@ CI: **not run on GitHub; only the equivalent targets were run locally** (`make l
 - Behaviour in other regions, partitions or with role credentials, or with the `retain` (customer) config.
 - That the GitHub workflows run as written: they were linted, not executed on GitHub.
 - That the scanners MISSING in ASH would report nothing.
+
+## GitHub CI (2026-10-21)
+
+Workflow `ci` on GitHub-hosted runners (ubuntu-24.04), push to `main`, run 39526056186 at commit `a64e26d`:
+all jobs succeeded (lint, test, synth, secret scan; ASH).
+
+ASH v3.7.1 in container mode (image built from the Docker Hub copy of its base image, see the `ash` job):
+10 of 10 scanners passed, 0 failed, 0 missing; 242 findings in total, 0 actionable, 0 suppressed.
+This replaces the incomplete local ASH run above (five scanners missing for lack of Docker).
+
+What this does not show: the `deploy-verify` workflow has not run on GitHub (it needs an OIDC role and an
+environment with reviewers in the target account).
