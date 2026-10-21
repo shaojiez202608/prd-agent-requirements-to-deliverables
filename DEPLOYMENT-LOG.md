@@ -4,11 +4,11 @@ Account: `111122223333` (placeholder; the real sandbox account is never recorded
 `AWS_REGION`). Earlier deployments of the same stack were destroyed earlier on the same day; their bootstrap template
 objects were removed in this run (see "Bootstrap assets").
 
-## Run of 2026-10-20 (UTC), commit `1eb4af5`
+## Run of 2026-10-20 (UTC), commit `b4bf9dd`
 
 | Item | Value |
 |---|---|
-| Commit | `1eb4af5` (`fix(deps): place exclude-newer first in [tool.uv]`). Uncommitted changes at run time: documentation only (this file, VERIFICATION.md, CHANGELOG.md, docs/) |
+| Commit | `b4bf9dd` (`fix(deps): place exclude-newer first in [tool.uv]`). Uncommitted changes at run time: documentation only (this file, VERIFICATION.md, CHANGELOG.md, docs/) |
 | Stack / config | `proto-prd-artifacts`, `infra/config/sandbox.json` copied by `make init` from `sandbox.example.json` (unchanged) |
 | Tools | CDK CLI 2.1146.0 (pinned in Makefile), aws-cdk-lib 2.273.0, cdk-nag 2.38.2, jsii 1.141.0 (from `uv.lock` with the 7-day cooldown), uv 0.10.10, Node.js 24.14.0, AWS CLI 2.33.17 |
 | Credentials | IAM user credentials from the environment (preflight shows principal type `user`) |
@@ -48,16 +48,16 @@ The bootstrap bucket is shared and versioned. This project's objects were identi
 | Asset key (prefix) | Synthesized from | Deployed in | Deleted |
 |---|---|---|---|
 | `4f5b0552…` | commits `e799662` and `fd49754` (identical template) | the two earlier runs | 16:58 UTC (first run of this round) |
-| `85094a8d…` | `9618f4a`, `9dee339` and `1eb4af5`, no writer context | step 1 of each run in this round | after each run (16:58, 17:05, 17:27 UTC) |
-| `3b9e5ddb…` | `9618f4a`, `9dee339` and `1eb4af5`, with the writer context of step 3 | step 3 of each run in this round | after each run (16:59, 17:05, 17:27 UTC) |
+| `85094a8d…` | `64a582c`, `645e849` and `b4bf9dd`, no writer context | step 1 of each run in this round | after each run (16:58, 17:05, 17:27 UTC) |
+| `3b9e5ddb…` | `64a582c`, `645e849` and `b4bf9dd`, with the writer context of step 3 | step 3 of each run in this round | after each run (16:59, 17:05, 17:27 UTC) |
 
 ### Earlier runs in this round and the failure they found
 
 | Commit | Time (UTC) | Result |
 |---|---|---|
-| `9618f4a` | 16:51 to 16:59 | Deploy, verify (21/21) and writer-deny verify (13/13) passed. **Cleanup missed one bootstrap object**: `cdk destroy -o <first folder>` re-synthesized without the writer context and overwrote that folder's `assets.json` before the keys were read. A second cleanup call removed the object. Fixed in `9dee339` (keys read first, destroy writes to a temporary folder, with a test) |
-| `9dee339` | 17:00 to 17:05 | Full run passed, cleanup removed both objects, no residue |
-| `1eb4af5` | 17:22 to 17:27 | Repeated after the ASH fixes changed `uv.lock` and `scripts/ops.py`; this is the run recorded above |
+| `64a582c` | 16:51 to 16:59 | Deploy, verify (21/21) and writer-deny verify (13/13) passed. **Cleanup missed one bootstrap object**: `cdk destroy -o <first folder>` re-synthesized without the writer context and overwrote that folder's `assets.json` before the keys were read. A second cleanup call removed the object. Fixed in `645e849` (keys read first, destroy writes to a temporary folder, with a test) |
+| `645e849` | 17:00 to 17:05 | Full run passed, cleanup removed both objects, no residue |
+| `b4bf9dd` | 17:22 to 17:27 | Repeated after the ASH fixes changed `uv.lock` and `scripts/ops.py`; this is the run recorded above |
 
 ### What this run does not prove
 

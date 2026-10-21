@@ -1,7 +1,7 @@
 # Verification
 
 Run on 2026-10-20 (UTC) on a macOS arm64 machine: Python 3.12.13 (project venv via uv 0.10.10), Node.js 24.14.0,
-Apple clang 21, AWS CLI 2.33.17. Code commit: `1eb4af5` (the documentation commit that records these results
+Apple clang 21, AWS CLI 2.33.17. Code commit: `b4bf9dd` (the documentation commit that records these results
 follows it; tag `v0.1.0`). Configuration: `infra/config/sandbox.example.json` copied by `make init`, region
 us-east-1. Anything not listed was not run. No model or AI service is involved in any check.
 
@@ -51,7 +51,7 @@ with both problems listed.
 | CDK synth with cdk-nag, no AWS credentials needed | `make synth` (CDK CLI 2.1146.0, aws-cdk-lib 2.273.0, cdk-nag 2.38.2) | Exit 0; NagReport 10 rows, all Compliant, 0 suppressed |
 | Form behaviour in jsdom 24.1.3 (installed outside the repository) | `scripts/form_smoke_test.js` for pm, frontline, missing-fields | Byte-identical to `examples/prompts/*.prompt.txt` (`cmp`) |
 | Workflow lint | `uvx zizmor --persona=auditor .github/workflows` (zizmor 1.31.1, offline mode), `uvx --from actionlint-py actionlint` (1.7.12) | No findings (2 informational job-name findings were fixed) |
-| AWS deployment, end-to-end, teardown | See DEPLOYMENT-LOG.md (commit `1eb4af5`) | Preflight PASS; verify 21/21 and writer-deny 13/13; cleanup without warnings; residue check: cleaned up, no residue |
+| AWS deployment, end-to-end, teardown | See DEPLOYMENT-LOG.md (commit `b4bf9dd`) | Preflight PASS; verify 21/21 and writer-deny 13/13; cleanup without warnings; residue check: cleaned up, no residue |
 
 ## Security scans
 

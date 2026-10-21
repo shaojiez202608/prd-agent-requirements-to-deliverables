@@ -1,6 +1,6 @@
 # Architecture
 
-Applies to v0.1.0. The infrastructure parts were reviewed against commit `03ba5dc`
+Applies to v0.1.0. The infrastructure parts were reviewed against commit `3b1a6cc`
 (`feat(infra): config templates, validation, guarded ops and resource policy`); see CHANGELOG.md for later changes.
 The mermaid diagrams in this file are the source of truth; there are no rendered images.
 
