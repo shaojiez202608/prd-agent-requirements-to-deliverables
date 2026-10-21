@@ -68,8 +68,7 @@ missing scanners are left to a CI run on GitHub; they were not run anywhere in t
 outside ASH (`make synth`, tests). Two actionable ASH findings from the first run were fixed in code: bandit B310
 (`scripts/ops.py`, https-only check) and semgrep `uv-missing-dependency-cooldown` (`pyproject.toml`).
 
-CI: **not run on GitHub; only the equivalent targets were run locally** (`make lint test synth scan`). Holmes:
-not available on this machine.
+CI: **not run on GitHub; only the equivalent targets were run locally** (`make lint test synth scan`).
 
 ## Not run, and why
 
